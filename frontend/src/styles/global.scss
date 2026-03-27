@@ -1,0 +1,109 @@
+@use 'variables' as *;
+
+// ===== Reset & Base =====
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  height: 100%;
+  font-family: $font-family;
+  font-size: $font-size-base;
+  color: $text-primary;
+  background: $bg-light;
+  -webkit-font-smoothing: antialiased;
+}
+
+#app {
+  height: 100%;
+}
+
+a {
+  color: $primary;
+  text-decoration: none;
+  &:hover { text-decoration: underline; }
+}
+
+button {
+  cursor: pointer;
+  border: none;
+  outline: none;
+  font-family: inherit;
+}
+
+input, select, textarea {
+  font-family: inherit;
+  font-size: inherit;
+}
+
+ul, ol {
+  list-style: none;
+}
+
+// ===== Common Utilities =====
+.flex { display: flex; }
+.flex-center { display: flex; align-items: center; justify-content: center; }
+.flex-between { display: flex; align-items: center; justify-content: space-between; }
+.flex-1 { flex: 1; }
+.gap-sm { gap: $spacing-sm; }
+.gap-md { gap: $spacing-md; }
+.gap-lg { gap: $spacing-lg; }
+
+.text-center { text-align: center; }
+.text-right { text-align: right; }
+.font-bold { font-weight: 600; }
+
+// ===== Common Button Styles =====
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 14px;
+  border-radius: $radius-md;
+  font-size: $font-size-sm;
+  font-weight: 500;
+  transition: all $transition-fast;
+  white-space: nowrap;
+
+  &-primary {
+    background: $primary;
+    color: $white;
+    &:hover { background: darken($primary, 8%); }
+  }
+  &-success {
+    background: $success;
+    color: $white;
+    &:hover { background: darken($success, 8%); }
+  }
+  &-danger {
+    background: $error;
+    color: $white;
+    &:hover { background: darken($error, 8%); }
+  }
+  &-outline {
+    background: $white;
+    color: $text-primary;
+    border: 1px solid $border-color;
+    &:hover { border-color: $primary; color: $primary; }
+  }
+}
+
+// ===== Card =====
+.card {
+  background: $white;
+  border: 1px solid $border-color;
+  border-radius: $radius-lg;
+  padding: $spacing-xl;
+  box-shadow: $shadow-sm;
+}
+
+// ===== 반응형 태블릿 =====
+@media (max-width: #{$bp-desktop - 1px}) and (min-width: $bp-tablet) {
+  html {
+    font-size: 12px;
+  }
+}

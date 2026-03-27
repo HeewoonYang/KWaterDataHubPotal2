@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1400">
+<title>K-water 데이터관리포털 - 대시보드</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.0.3/styles/ag-grid.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.0.3/styles/ag-theme-alpine.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Malgun Gothic', '맑은 고딕', sans-serif; font-size: 11px; color: #333; background: #e8eef5; line-height: 1.3; }
+
+/* ===== Header ===== */
+.top-bar { background: #fff; display: flex; align-items: center; padding: 0 12px; height: 36px; border-bottom: 1px solid #ccc; }
+.logo { font-size: 15px; font-weight: bold; color: #0066cc; margin-right: 30px; white-space: nowrap; }
+.logo .water { color: #0077cc; font-style: italic; }
+.logo .portal-name { color: #333; font-size: 12px; font-weight: bold; margin-left: 4px; font-style: normal; }
+.main-nav { display: flex; align-items: stretch; justify-content: center; height: 36px; flex: 1; }
+.main-nav a {
+  display: flex; align-items: center; padding: 0 18px; text-decoration: none;
+  color: #333; font-size: 12px; font-weight: 500; white-space: nowrap;
+}
+.main-nav a:hover { background: #f0f0f0; }
+.main-nav a.active { background: #3a3a4a; color: #fff; font-weight: bold; }
+.user-info { margin-left: auto; display: flex; align-items: center; gap: 8px; font-size: 11px; color: #555; white-space: nowrap; }
+
+/* Sub Nav */
+.sub-nav { background: #4a8fd9; display: flex; justify-content: center; height: 30px; padding: 0 12px; }
+.sub-nav a {
+  display: flex; align-items: center; padding: 0 14px; text-decoration: none;
+  color: rgba(255,255,255,0.9); font-size: 11px; white-space: nowrap;
+}
+.sub-nav a:hover { background: rgba(255,255,255,0.15); }
+.sub-nav a.active { background: #3570a8; color: #fff; font-weight: bold; }
+
+/* ===== Content ===== */
+.content { padding: 8px 12px; }
+.page-title { font-size: 13px; font-weight: bold; color: #333; margin-bottom: 8px; }
+
+/* ===== Category Boxes ===== */
+.category-row { display: flex; align-items: center; justify-content: center; gap: 6px; margin-bottom: 8px; }
+.cat-box {
+  border: 1px solid #ccc; background: #fff; text-align: center; padding: 4px 0;
+  min-width: 90px; border-radius: 3px; cursor: pointer;
+}
+.cat-box.active { border-color: #4a8fd9; background: #eef5ff; }
+.cat-box .cat-name { font-size: 11px; color: #555; border-bottom: 1px solid #eee; padding-bottom: 3px; margin-bottom: 3px; }
+.cat-box .cat-count { font-size: 16px; font-weight: bold; color: #333; }
+.cat-box.c1 .cat-name { background: #ffeaa7; }
+.cat-box.c2 .cat-name { background: #dfe6e9; }
+.cat-box.c3 .cat-name { background: #b2f2bb; }
+.cat-box.c4 .cat-name { background: #ffd3b6; }
+.cat-box.c5 .cat-name { background: #d5c4f7; }
+
+.info-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.system-count { font-size: 13px; font-weight: bold; }
+.system-count em { color: #c0392b; font-style: normal; font-size: 15px; }
+.info-bar .btns { display: flex; gap: 4px; }
+.info-bar .btns button {
+  padding: 3px 10px; font-size: 10px; border: 1px solid #999; background: #f5f5f5;
+  cursor: pointer; border-radius: 2px;
+}
+.info-bar .btns button.primary { background: #337ab7; color: #fff; border-color: #2e6da4; }
+.info-bar .btns button.warn { background: #e74c3c; color: #fff; border-color: #c0392b; }
+
+/* ===== Charts Area ===== */
+.charts-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 8px; }
+.chart-box {
+  background: #fff; border: 1px solid #ddd; border-radius: 3px; padding: 6px 8px;
+}
+.chart-box .chart-title { font-size: 11px; font-weight: bold; color: #333; margin-bottom: 4px; }
+.chart-box .chart-title::before { content: '▌'; color: #333; margin-right: 3px; }
+.chart-box canvas { width: 100% !important; height: 130px !important; }
+
+/* (right panel removed) */
+
+/* ===== AG Grid ===== */
+#gridContainer { width: 100%; }
+.ag-theme-alpine .ag-header-cell-label { justify-content: center; }
+.ag-theme-alpine .ag-cell { font-size: 10px; line-height: 1.3; }
+.ag-theme-alpine .ag-header-cell-text { font-size: 10px; font-weight: 600; }
+.ag-theme-alpine .ag-header-group-cell-label { justify-content: center; }
+</style>
+</head>
+<body>
+
+<!-- 상단 메뉴바 -->
+<div class="top-bar">
+  <div class="logo">
+    K <span class="water">water</span><span class="portal-name">데이터관리포털</span>
+  </div>
+  <div class="main-nav">
+    <a href="policy.html">데이터정책</a>
+    <a href="index.html">데이터작업</a>
+    <a href="#">데이터산출물</a>
+    <a href="#">데이터활용</a>
+    <a href="#">커뮤니케이션</a>
+    <a href="dashboard.html" class="active">대시보드</a>
+  </div>
+  <div class="user-info">
+    <span style="color:#e67e22;">&#9679;</span> 이승우
+    &nbsp;
+    <span style="color:#888;">&#127891;</span> 전문가 툴
+  </div>
+</div>
+
+<!-- 서브메뉴 -->
+<div class="sub-nav">
+  <a href="#">데이터 품질 총괄</a>
+  <a href="dashboard.html" class="active">시스템 그룹별 품질 현황</a>
+  <a href="#">연도별 표준사전 정보</a>
+  <a href="#">정보시스템 관리 현황</a>
+</div>
+
+<!-- Content -->
+<div class="content">
+
+      <div class="page-title">시스템 그룹별 품질 현황</div>
+
+      <!-- Category Boxes -->
+      <div class="category-row">
+        <div class="cat-box c1 active">
+          <div class="cat-name">경영</div>
+          <div class="cat-count">20</div>
+        </div>
+        <div class="cat-box c2">
+          <div class="cat-name">물관리</div>
+          <div class="cat-count">13</div>
+        </div>
+        <div class="cat-box c3">
+          <div class="cat-name">건설기술</div>
+          <div class="cat-count">7</div>
+        </div>
+        <div class="cat-box c4">
+          <div class="cat-name">대외</div>
+          <div class="cat-count">5</div>
+        </div>
+        <div class="cat-box c5">
+          <div class="cat-name">기타</div>
+          <div class="cat-count">22</div>
+        </div>
+      </div>
+      <div class="info-bar">
+        <span class="system-count">관리 시스템 : <em>67</em>개</span>
+        &nbsp;
+        <div class="btns">
+          <button>📋 다운로드</button>
+          <button class="warn">의견</button>
+        </div>
+      </div>
+
+      <!-- Charts -->
+      <div class="charts-row">
+        <div class="chart-box">
+          <div class="chart-title">표준준수율</div>
+          <canvas id="chart1"></canvas>
+        </div>
+        <div class="chart-box">
+          <div class="chart-title">구조현행화율</div>
+          <canvas id="chart2"></canvas>
+        </div>
+        <div class="chart-box">
+          <div class="chart-title">값진단준수율</div>
+          <canvas id="chart3"></canvas>
+        </div>
+        <div class="chart-box">
+          <div class="chart-title">메타데이터등록률</div>
+          <canvas id="chart4"></canvas>
+        </div>
+      </div>
+
+      <!-- AG Grid -->
+      <div id="gridContainer" class="ag-theme-alpine" style="height: 340px;"></div>
+
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/ag-grid-community@31.0.3/dist/ag-grid-community.min.js"></script>
+<script>
+// ===== Charts =====
+const chartColors = ['#ffeaa7','#dfe6e9','#b2f2bb','#ffd3b6','#d5c4f7','#a3d9f5','#f8c3cd'];
+const chartLabels = ['경영','물관리','건설기술','대외','기타','수도','환경'];
+
+function createBarChart(id, dataValues, label) {
+  const ctx = document.getElementById(id).getContext('2d');
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: chartLabels,
+      datasets: [{
+        data: dataValues,
+        backgroundColor: chartColors,
+        borderColor: chartColors.map(c => c),
+        borderWidth: 1,
+        barPercentage: 0.6,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      layout: { padding: { top: 14 } },
+      plugins: {
+        legend: { display: false },
+        datalabels: { display: true },
+        tooltip: { enabled: true },
+      },
+      scales: {
+        y: { beginAtZero: true, max: 100, ticks: { font: { size: 9 }, stepSize: 50 } },
+        x: { ticks: { font: { size: 9 } } }
+      },
+      animation: { duration: 600 }
+    },
+    plugins: [{
+      afterDraw: function(chart) {
+        const ctx2 = chart.ctx;
+        ctx2.font = '9px Malgun Gothic';
+        ctx2.textAlign = 'center';
+        ctx2.fillStyle = '#333';
+        chart.data.datasets[0].data.forEach((val, i) => {
+          const meta = chart.getDatasetMeta(0);
+          const bar = meta.data[i];
+          ctx2.fillText(val, bar.x, bar.y - 3);
+        });
+      }
+    }]
+  });
+}
+
+createBarChart('chart1', [99.89, 100, 100, 100, 100], '표준준수율');
+createBarChart('chart2', [99.5, 97.27, 99.84, 99.49, 91.63], '구조현행화율');
+createBarChart('chart3', [99.05, 99.63, 99.99, 100, 99.74], '값진단준수율');
+createBarChart('chart4', [96.25, 95.45, 93.09, 93.89, 83.44], '메타데이터등록률');
+
+// ===== AG Grid =====
+const rowData = [
+  { sysName:"(구축중)스마트...", sysCode:"DSP", cnt:"1,343 / 1,343", compliance:"100.00%", tblCnt:"103 / 103", tblRate:"100.00%", colCnt:"1,372 / 1,375", colRate:"99.78%", dbTbl:"103 / 124", dbTblRate:"83.06%", dbCol:"1,372 / 1,789", dbColRate:"76.69%", dqCnt:"1,372 / 1,789", dqRate:"76.69%", metaCnt:"97 / 125", metaRate:"77.60%", metaTbl:"1,280 / 1,316", metaTblRate:"97.26%" },
+  { sysName:"Digital GARAM+", sysCode:"DGP", cnt:"1,443 / 1,443", compliance:"100.00%", tblCnt:"148 / 148", tblRate:"100.00%", colCnt:"1,443 / 1,443", colRate:"100.00%", dbTbl:"148 / 208", dbTblRate:"71.15%", dbCol:"1,843 / 2,693", dbColRate:"68.44%", dqCnt:"6,664 / 6,665", dqRate:"99.99%", metaCnt:"145 / 208", metaRate:"69.71%", metaTbl:"1,854 / 1,872", metaTblRate:"99.04%" },
+  { sysName:"K 물산업지원...", sysCode:"WIS", cnt:"2,841 / 2,841", compliance:"100.00%", tblCnt:"207 / 207", tblRate:"100.00%", colCnt:"2,841 / 3,871", colRate:"73.40%", dbTbl:"207 / 208", dbTblRate:"99.52%", dbCol:"3,000 / 3,032", dbColRate:"98.94%", dqCnt:"3 / 3", dqRate:"100.00%", metaCnt:"254 / 255", metaRate:"99.61%", metaTbl:"3,606 / 3,613", metaTblRate:"99.81%" },
+  { sysName:"KRM시스템", sysCode:"KRM", cnt:"1,600 / 1,600", compliance:"100.00%", tblCnt:"121 / 121", tblRate:"100.00%", colCnt:"3,000 / 3,000", colRate:"100.00%", dbTbl:"121 / 121", dbTblRate:"100.00%", dbCol:"2,022 / 2,022", dbColRate:"100.00%", dqCnt:"1 / 1", dqRate:"100.00%", metaCnt:"835 / 970", metaRate:"86.08%", metaTbl:"13,653 / 1...", metaTblRate:"99.86%" },
+  { sysName:"OASIS", sysCode:"EIP", cnt:"", compliance:"", tblCnt:"", tblRate:"", colCnt:"2,022 / 2,022", colRate:"100.00%", dbTbl:"", dbTblRate:"", dbCol:"", dbColRate:"", dqCnt:"4 / 4", dqRate:"100.00%", metaCnt:"636 / 752", metaRate:"84.57%", metaTbl:"11,227 / 1...", metaTblRate:"89.17%" },
+  { sysName:"기업정보시스템", sysCode:"DIS", cnt:"4,099 / 1...", compliance:"", tblCnt:"1,020 / ...", tblRate:"98.74%", colCnt:"11,414 / 1...", colRate:"97.60%", dbTbl:"1,020 / ...", dbTblRate:"97.89%", dbCol:"11,414 / 1...", dbColRate:"96.57%", dqCnt:"", dqRate:"", metaCnt:"994 / 1...", metaRate:"95.39%", metaTbl:"11,030 / 1...", metaTblRate:"99.56%" },
+  { sysName:"감시시스템", sysCode:"ADT", cnt:"1,853 / 1,853", compliance:"100.00%", tblCnt:"122 / 122", tblRate:"100.00%", colCnt:"2,171 / 2,176", colRate:"99.77%", dbTbl:"122 / 124", dbTblRate:"98.39%", dbCol:"2,171 / 2,238", dbColRate:"97.01%", dqCnt:"6,664 / 6,665", dqRate:"99.99%", metaCnt:"134 / 136", metaRate:"98.53%", metaTbl:"2,210 / 2,335", metaTblRate:"94.65%" },
+  { sysName:"건설통합시스템", sysCode:"CMS", cnt:"13,130 / 1...", compliance:"100.00%", tblCnt:"159 / 159", tblRate:"100.00%", colCnt:"463 / 596", colRate:"77.68%", dbTbl:"7,698", dbTblRate:"88.37%", dbCol:"2,693 / 3,012", dbColRate:"89.41%", dqCnt:"", dqRate:"", metaCnt:"", metaRate:"", metaTbl:"", metaTblRate:"" },
+  { sysName:"관악지하시스템", sysCode:"MGT", cnt:"4,541 / 4,541", compliance:"100.00%", tblCnt:"298 / 301", tblRate:"99.00%", colCnt:"4,414 / 4,949", colRate:"89.19%", dbTbl:"298 / 316", dbTblRate:"94.30%", dbCol:"4,894 / 5,178", dbColRate:"94.57%", dqCnt:"73 / 73", dqRate:"99.99%", metaCnt:"331 / 394", metaRate:"84.01%", metaTbl:"5,095 / 5,212", metaTblRate:"97.76%" },
+];
+
+const columnDefs = [
+  { headerName: '정보시스템명', field: 'sysName', width: 140, minWidth: 140, pinned: 'left' },
+  { headerName: '시스템코드', field: 'sysCode', width: 80, minWidth: 80, cellStyle: { textAlign: 'center' }, pinned: 'left' },
+  {
+    headerName: '데이터 표준',
+    children: [
+      { headerName: '건수', field: 'cnt', width: 115, cellStyle: { textAlign: 'center' } },
+      { headerName: '준수율', field: 'compliance', width: 80, cellStyle: { textAlign: 'center' } },
+    ]
+  },
+  {
+    headerName: '데이터 구조',
+    children: [
+      {
+        headerName: '모델',
+        children: [
+          { headerName: '테이블건수', field: 'tblCnt', width: 100, cellStyle: { textAlign: 'center' } },
+          { headerName: '테이블현행화율', field: 'tblRate', width: 100, cellStyle: { textAlign: 'center' } },
+          { headerName: '컬럼건수', field: 'colCnt', width: 115, cellStyle: { textAlign: 'center' } },
+          { headerName: '컬럼현행화율', field: 'colRate', width: 100, cellStyle: { textAlign: 'center' } },
+        ]
+      }
+    ]
+  },
+  {
+    headerName: 'DB',
+    children: [
+      { headerName: '테이블건수', field: 'dbTbl', width: 100, cellStyle: { textAlign: 'center' } },
+      { headerName: '테이블현행화율', field: 'dbTblRate', width: 100, cellStyle: { textAlign: 'center' } },
+      { headerName: '컬럼건수', field: 'dbCol', width: 115, cellStyle: { textAlign: 'center' } },
+      { headerName: '컬럼현행화율', field: 'dbColRate', width: 100, cellStyle: { textAlign: 'center' } },
+    ]
+  },
+  {
+    headerName: '데이터 품질',
+    children: [
+      { headerName: '건수(단위:1,000,000)', field: 'dqCnt', width: 145, cellStyle: { textAlign: 'center' } },
+      { headerName: '준수율', field: 'dqRate', width: 80, cellStyle: { textAlign: 'center' } },
+    ]
+  },
+  {
+    headerName: '메타데이터',
+    children: [
+      { headerName: '건수', field: 'metaCnt', width: 100, cellStyle: { textAlign: 'center' } },
+      { headerName: '테이블등록률', field: 'metaRate', width: 95, cellStyle: { textAlign: 'center' } },
+      { headerName: '건수', field: 'metaTbl', width: 115, cellStyle: { textAlign: 'center' } },
+      { headerName: '컬럼등록률', field: 'metaTblRate', width: 90, cellStyle: { textAlign: 'center' } },
+    ]
+  },
+];
+
+// 모든 leaf 컬럼에 headerTooltip 자동 부여
+function addHeaderTooltips(cols) {
+  cols.forEach(c => {
+    if (c.children) { addHeaderTooltips(c.children); }
+    else if (c.headerName) { c.headerTooltip = c.headerName; }
+  });
+}
+addHeaderTooltips(columnDefs);
+
+const gridOptions = {
+  columnDefs: columnDefs,
+  rowData: rowData,
+  rowHeight: 24,
+  headerHeight: 28,
+  groupHeaderHeight: 26,
+  defaultColDef: {
+    resizable: true,
+    sortable: true,
+    wrapHeaderText: true,
+    autoHeaderHeight: true,
+    tooltipValueGetter: function(params) { return params.value; },
+  },
+  tooltipShowDelay: 300,
+  rowSelection: 'single',
+  pagination: true,
+  paginationPageSize: 100,
+  paginationPageSizeSelector: [50, 100, 200],
+};
+
+const gridDiv = document.querySelector('#gridContainer');
+agGrid.createGrid(gridDiv, gridOptions);
+</script>
+</body>
+</html>

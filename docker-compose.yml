@@ -1,0 +1,86 @@
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: datahub-portal-frontend
+    ports:
+      - "8088:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: datahub-portal-backend
+    ports:
+      - "8001:8000"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://datahub:datahub@postgres:5432/datahub
+      - DATABASE_URL_SYNC=postgresql+psycopg://datahub:datahub@postgres:5432/datahub
+      - REDIS_URL=redis://redis:6379/0
+      - OPENMETADATA_URL=http://openmetadata:8585/api
+      - CORS_ORIGINS=["http://localhost:8088","http://localhost:5173"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: datahub-postgres
+    environment:
+      POSTGRES_DB: datahub
+      POSTGRES_USER: datahub
+      POSTGRES_PASSWORD: datahub
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U datahub"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: datahub-redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+
+  celery-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: datahub-celery-worker
+    command: celery -A app.tasks worker --loglevel=info
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://datahub:datahub@postgres:5432/datahub
+      - DATABASE_URL_SYNC=postgresql+psycopg://datahub:datahub@postgres:5432/datahub
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - backend
+      - redis
+    restart: unless-stopped
+
+  celery-beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: datahub-celery-beat
+    command: celery -A app.tasks beat --loglevel=info
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+volumes:
+  pgdata:

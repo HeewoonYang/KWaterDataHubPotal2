@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>K-water 데이터관리포털</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Malgun Gothic', '맑은 고딕', sans-serif; font-size: 11px; color: #333; background: #f0f0f0; line-height: 1.2; }
+
+  /* Top Header */
+  .top-header {
+    background: #1a3a5c;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    height: 36px;
+    padding: 0 10px;
+  }
+  .logo { display: flex; align-items: center; gap: 5px; margin-right: 20px; }
+  .logo-icon {
+    width: 26px; height: 26px; background: #4a9bd9; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: bold; font-size: 10px; color: #fff;
+  }
+  .logo-text { font-size: 12px; font-weight: bold; color: #fff; }
+  .top-nav { display: flex; gap: 0; flex: 1; }
+  .top-nav a {
+    color: #ccc; text-decoration: none; padding: 9px 12px; font-size: 11px;
+    cursor: pointer; transition: background 0.2s;
+  }
+  .top-nav a:hover, .top-nav a.active { color: #fff; background: rgba(255,255,255,0.1); }
+  .top-right { display: flex; align-items: center; gap: 8px; margin-left: auto; color: #ccc; font-size: 11px; }
+  .top-right a { color: #ccc; text-decoration: none; }
+  .top-right .user-name { color: #fff; }
+
+  /* Layout */
+  .main-wrap { display: flex; height: calc(100vh - 36px - 22px); }
+
+  /* Left Sidebar */
+  .sidebar {
+    width: 170px; background: #f7f8fa; border-right: 1px solid #ddd;
+    overflow-y: auto; flex-shrink: 0;
+  }
+  .sidebar::-webkit-scrollbar { width: 4px; }
+  .sidebar::-webkit-scrollbar-thumb { background: #bbb; border-radius: 2px; }
+
+  /* Accordion */
+  .accordion-header {
+    background: #3a7abd; color: #fff; padding: 5px 8px; font-size: 11px;
+    font-weight: bold; cursor: pointer; display: flex;
+    justify-content: space-between; align-items: center;
+    border-bottom: 1px solid #2a6aad; user-select: none;
+  }
+  .accordion-header:hover { background: #2e6ca8; }
+  .accordion-header .arrow { font-size: 8px; transition: transform 0.2s; }
+  .accordion-header.collapsed .arrow { transform: rotate(180deg); }
+  .accordion-body { overflow: hidden; transition: max-height 0.25s ease; }
+  .accordion-body.collapsed { max-height: 0 !important; }
+
+  .sub-accordion-header {
+    background: #e8edf2; color: #333; font-size: 11px;
+    padding: 4px 8px 4px 14px; border-bottom: 1px solid #ddd;
+    cursor: pointer; display: flex; justify-content: space-between;
+    align-items: center; user-select: none;
+  }
+  .sub-accordion-header:hover { background: #dce3eb; }
+  .sub-accordion-header .arrow { font-size: 8px; transition: transform 0.2s; }
+  .sub-accordion-header.collapsed .arrow { transform: rotate(180deg); }
+  .sub-accordion-body { overflow: hidden; transition: max-height 0.2s ease; }
+  .sub-accordion-body.collapsed { max-height: 0 !important; }
+
+  .sidebar-menu { list-style: none; }
+  .sidebar-menu li a {
+    display: block; padding: 3px 8px 3px 24px; color: #555;
+    text-decoration: none; font-size: 11px; border-bottom: 1px solid #eee;
+    transition: background 0.15s; line-height: 1.4; cursor: pointer;
+  }
+  .sidebar-menu li a:hover { background: #e8f0fe; color: #1a3a5c; }
+  .sidebar-menu li a.active { background: #d0e0f0; color: #1a3a5c; font-weight: bold; }
+
+  /* Content Area */
+  .content { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+  .page-view { display: none; flex: 1; flex-direction: column; overflow: hidden; }
+  .page-view.active { display: flex; }
+
+  /* Content Tabs */
+  .content-tabs {
+    display: flex; background: #e8e8e8; border-bottom: 2px solid #3a7abd;
+    overflow-x: auto; flex-shrink: 0;
+  }
+  .content-tabs::-webkit-scrollbar { height: 3px; }
+  .content-tab {
+    padding: 5px 10px; font-size: 11px; cursor: pointer;
+    background: #e0e0e0; border: 1px solid #ccc; border-bottom: none;
+    margin-right: 1px; color: #555; position: relative; top: 2px;
+    white-space: nowrap; flex-shrink: 0;
+  }
+  .content-tab.active {
+    background: #fff; color: #1a3a5c; font-weight: bold;
+    border-color: #3a7abd; border-bottom: 2px solid #fff;
+  }
+  .content-tab .close-tab {
+    margin-left: 4px; color: #999; cursor: pointer; font-size: 12px;
+  }
+  .content-tab .close-tab:hover { color: #c00; }
+
+  /* Search Area */
+  .search-area {
+    background: #f5f7fa; padding: 5px 10px; border-bottom: 1px solid #ddd;
+    display: flex; align-items: center; gap: 5px; flex-wrap: wrap; flex-shrink: 0;
+  }
+  .search-area label { font-size: 11px; color: #555; white-space: nowrap; }
+  .search-area select, .search-area input[type="text"] {
+    padding: 2px 5px; border: 1px solid #ccc; border-radius: 2px;
+    font-size: 11px; background: #fff; height: 22px;
+  }
+  .search-area select { min-width: 80px; }
+  .search-area input[type="text"] { width: 100px; }
+  .search-area .btn-search-right { margin-left: auto; }
+  .btn-search {
+    background: #3a7abd; color: #fff; border: none; padding: 3px 14px;
+    border-radius: 2px; cursor: pointer; font-size: 11px; font-weight: bold; height: 22px;
+  }
+  .btn-search:hover { background: #2a6aad; }
+
+  /* Table */
+  .table-wrap { flex: 1; overflow: auto; padding: 0; background: #fff; }
+  .table-wrap::-webkit-scrollbar { width: 6px; height: 6px; }
+  .table-wrap::-webkit-scrollbar-thumb { background: #bbb; border-radius: 3px; }
+  table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  thead th {
+    background: #4a6a8a; color: #fff; padding: 4px 5px; text-align: center;
+    border: 1px solid #3a5a7a; font-weight: bold; font-size: 11px;
+    position: sticky; top: 0; z-index: 1; white-space: nowrap;
+  }
+  tbody td {
+    padding: 2px 5px; border: 1px solid #e0e0e0; text-align: center;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    max-width: 150px; line-height: 1.3;
+  }
+  tbody tr:nth-child(even) { background: #f9f9fb; }
+  tbody tr:hover { background: #e8f0fe; }
+  tbody td.left { text-align: left; }
+  tbody td.right { text-align: right; }
+  .icon-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 18px; height: 18px; background: #eee; border: 1px solid #ccc;
+    border-radius: 2px; cursor: pointer; font-size: 9px; color: #666; margin: 0 1px;
+  }
+  .icon-btn:hover { background: #ddd; }
+
+  /* Summary table for 표준데이터 */
+  .summary-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  .summary-table th {
+    background: #e8edf2; color: #333; padding: 5px 10px;
+    border: 1px solid #ccc; font-weight: bold; text-align: center;
+  }
+  .summary-table td {
+    padding: 5px 10px; border: 1px solid #ccc; text-align: right;
+    font-size: 12px; font-weight: bold; color: #333;
+  }
+
+  /* Pagination */
+  .pagination-area {
+    background: #f5f7fa; padding: 3px 10px; border-top: 1px solid #ddd;
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 11px; flex-shrink: 0;
+  }
+  .pagination { display: flex; align-items: center; gap: 2px; }
+  .pagination button {
+    background: #fff; border: 1px solid #ccc; padding: 1px 6px;
+    cursor: pointer; border-radius: 2px; font-size: 10px; height: 20px;
+  }
+  .pagination button:hover { background: #eee; }
+  .pagination input {
+    width: 26px; text-align: center; border: 1px solid #ccc;
+    padding: 1px; border-radius: 2px; font-size: 10px; height: 20px;
+  }
+  .pagination span { color: #666; font-size: 11px; }
+  .page-info { color: #666; font-size: 11px; }
+  .page-size-area { display: flex; align-items: center; gap: 4px; }
+  .page-size-area select {
+    padding: 1px 4px; border: 1px solid #ccc; border-radius: 2px;
+    font-size: 10px; height: 20px;
+  }
+
+  /* Bottom bar */
+  .bottom-bar {
+    background: #e0e0e0; padding: 2px 10px; display: flex; align-items: center;
+    justify-content: space-between; font-size: 10px; color: #666;
+    border-top: 1px solid #ccc; height: 22px;
+  }
+  .bottom-bar .tabs { display: flex; gap: 1px; }
+  .bottom-bar .tab-btn {
+    padding: 1px 8px; background: #d0d0d0; border: 1px solid #bbb;
+    border-radius: 2px 2px 0 0; cursor: pointer; font-size: 10px;
+  }
+  .bottom-bar .tab-btn.active { background: #fff; }
+</style>
+</head>
+<body>
+
+<!-- Top Header -->
+<div class="top-header">
+  <div class="logo">
+    <div class="logo-icon">K</div>
+    <span class="logo-text">K-water</span>
+  </div>
+  <div class="top-nav" id="topNav">
+    <a data-page="standard">데이터표준</a>
+    <a data-page="meta" class="active">메타데이터</a>
+    <a data-page="impact">데이터 영향분석</a>
+    <a data-page="quality">데이터품질</a>
+    <a data-page="comm">커뮤니케이션</a>
+  </div>
+  <div class="top-right">
+    <span class="user-name">양희운</span>
+    <a href="#">포털</a>
+  </div>
+</div>
+
+<div class="main-wrap">
+  <!-- Left Sidebar -->
+  <div class="sidebar" id="sidebar"></div>
+
+  <!-- Content -->
+  <div class="content">
+
+    <!-- ===== 데이터표준 Page ===== -->
+    <div class="page-view" id="page-standard">
+      <div class="content-tabs" id="tabs-standard">
+        <div class="content-tab">대시보드</div>
+        <div class="content-tab">표준 데이터 조회 <span class="close-tab">×</span></div>
+        <div class="content-tab">표준매핑 이력 - 용어 <span class="close-tab">×</span></div>
+        <div class="content-tab">매핑마스터 이력 - 용어 <span class="close-tab">×</span></div>
+        <div class="content-tab">표준매핑 - 용어 <span class="close-tab">×</span></div>
+        <div class="content-tab">표준데이터 기간별 신청 차트 <span class="close-tab">×</span></div>
+        <div class="content-tab">표준데이터 기간별 신청 건수 <span class="close-tab">×</span></div>
+        <div class="content-tab active">표준데이터 현황 <span class="close-tab">×</span></div>
+      </div>
+      <div class="search-area">
+        <label>표준사전:</label>
+        <select><option>K-water데이터표준</option></select>
+        <span class="btn-search-right">
+          <button class="btn-search">조회</button>
+        </span>
+      </div>
+      <div class="table-wrap">
+        <table class="summary-table">
+          <thead>
+            <tr>
+              <th>단어 (건)</th>
+              <th>도메인 (건)</th>
+              <th>용어 (건)</th>
+              <th>동의어 (건)</th>
+              <th>속성분류어 (건)</th>
+              <th>엔터티분류어 (건)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>6,306</td>
+              <td>4,491</td>
+              <td>41,724</td>
+              <td>888</td>
+              <td>570</td>
+              <td>0</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="pagination-area">
+        <div class="pagination">
+          <button>≪</button><button>＜</button>
+          <span>페이지</span><input type="text" value="1"><span>/ 1</span>
+          <button>＞</button><button>≫</button><button>↻</button>
+        </div>
+        <div class="page-info">전체 1 중 1 - 1</div>
+      </div>
+    </div>
+
+    <!-- ===== 메타데이터 Page ===== -->
+    <div class="page-view active" id="page-meta">
+      <div class="content-tabs" id="tabs-meta">
+        <div class="content-tab">대시보드</div>
+        <div class="content-tab">표준 데이터 조회</div>
+        <div class="content-tab active">모델 통합검색 <span class="close-tab">×</span></div>
+      </div>
+      <div class="search-area">
+        <label>모델</label>
+        <select><option>RWIS</option></select>
+        <label>조회기준:</label>
+        <select><option>엔터티/테이블</option></select>
+        <label>엔터티유형:</label>
+        <select><option>Normal</option></select>
+        <label>검색어</label>
+        <input type="text" placeholder="">
+        <label>%검색어%</label>
+        <button class="btn-search">조회</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>DBMS</th><th>엔터티</th><th>테이블</th><th>엔터티유형</th>
+              <th>공유</th><th>속성</th><th>컬럼</th><th>속성유형</th>
+              <th>표준화대상</th><th>논리</th><th>물리</th><th>ERD</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+      </div>
+      <div class="pagination-area">
+        <div class="pagination">
+          <button>≪</button><button>＜</button>
+          <span>페이지</span><input type="text" value="1"><span>/ 7</span>
+          <button>＞</button><button>≫</button><button>↻</button>
+        </div>
+        <div class="page-size-area">
+          <span>Page size:</span>
+          <select><option>50</option><option>100</option></select>
+        </div>
+        <div class="page-info">전체 302 중 1 - 50</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Bottom Bar -->
+<div class="bottom-bar">
+  <div class="tabs">
+    <span class="tab-btn active">사용</span>
+    <span class="tab-btn">감사</span>
+    <span class="tab-btn">경영</span>
+  </div>
+  <div>헬프데스크 400-2119</div>
+</div>
+
+<script>
+// ============ Sidebar definitions per page ============
+const sidebarConfig = {
+  standard: [
+    { title: '데이터표준관리', open: true, children: [
+      { type: 'items', items: ['표준 데이터 조회','표준 데이터 조회 (팝업)','코드값 조회','계층코드 조회'] }
+    ]},
+    { title: '통계/리포트', open: true, children: [
+      { type: 'items', items: ['표준화 현황','사용 표준 목록','미사용 표준 목록','동의어 현황','표준데이터 현황','표준데이터 신청 현황','표준데이터 기간별 신청 건수','표준데이터 기간별 신청 차트'] }
+    ]},
+    { title: '데이터표준매핑', open: true, children: [
+      { type: 'items', items: ['표준매핑 - 용어'] }
+    ]},
+    { title: '매핑이력', open: true, children: [
+      { type: 'items', items: ['매핑마스터 이력 - 용어','표준매핑 이력 - 용어'] }
+    ]}
+  ],
+  meta: [
+    { title: '데이터모델', open: true, children: [
+      { type: 'group', title: '모델통합검색', open: true, items: ['모델 통합검색','모델 조회','모델 속성/컬럼 검색'] },
+      { type: 'group', title: '모델조회', open: true, items: ['개괄모델 조회','개념모델 조회','논리모델 조회','물리모델 조회','ERD 조회'] },
+      { type: 'group', title: '모델 매핑', open: true, items: ['개괄-개념 모델 매핑','개념-논리 모델 매핑','모델 매핑 조회'] },
+      { type: 'group', title: '통계/리포트', open: true, items: ['표준 준수율 현황','모델 현황','모델신청 현황','모델승인 현황','인기 데이터 현황','DB자산 통계 및 변경 추이'] }
+    ]},
+    { title: 'DBMS 카탈로그', open: false, children: [] },
+    { title: 'DB객체', open: false, children: [] },
+    { title: '데이터작업관리', open: false, children: [] },
+    { title: '데이터산출물', open: false, children: [] },
+    { title: '사용자정의 메타', open: false, children: [] },
+    { title: '데이터통합 알림 설정', open: false, children: [] }
+  ]
+};
+
+// ============ Build sidebar ============
+function buildSidebar(pageKey) {
+  const sidebar = document.getElementById('sidebar');
+  sidebar.innerHTML = '';
+  const config = sidebarConfig[pageKey] || [];
+  config.forEach(section => {
+    // Main accordion header
+    const header = document.createElement('div');
+    header.className = 'accordion-header' + (section.open ? '' : ' collapsed');
+    header.innerHTML = `${section.title} <span class="arrow">▲</span>`;
+    sidebar.appendChild(header);
+
+    // Main accordion body
+    const body = document.createElement('div');
+    body.className = 'accordion-body' + (section.open ? '' : ' collapsed');
+    sidebar.appendChild(body);
+
+    header.addEventListener('click', () => {
+      header.classList.toggle('collapsed');
+      body.classList.toggle('collapsed');
+    });
+
+    if (!section.children) return;
+    section.children.forEach(child => {
+      if (child.type === 'group') {
+        // Sub-accordion
+        const subH = document.createElement('div');
+        subH.className = 'sub-accordion-header' + (child.open ? '' : ' collapsed');
+        subH.innerHTML = `${child.title} <span class="arrow">▲</span>`;
+        body.appendChild(subH);
+
+        const subB = document.createElement('div');
+        subB.className = 'sub-accordion-body' + (child.open ? '' : ' collapsed');
+        body.appendChild(subB);
+
+        subH.addEventListener('click', (e) => {
+          e.stopPropagation();
+          subH.classList.toggle('collapsed');
+          subB.classList.toggle('collapsed');
+        });
+
+        const ul = document.createElement('ul');
+        ul.className = 'sidebar-menu';
+        child.items.forEach(item => {
+          const li = document.createElement('li');
+          li.innerHTML = `<a href="#">${item}</a>`;
+          ul.appendChild(li);
+        });
+        subB.appendChild(ul);
+      } else if (child.type === 'items') {
+        const ul = document.createElement('ul');
+        ul.className = 'sidebar-menu';
+        child.items.forEach(item => {
+          const li = document.createElement('li');
+          li.innerHTML = `<a href="#">${item}</a>`;
+          ul.appendChild(li);
+        });
+        body.appendChild(ul);
+      }
+    });
+
+    // Set max-height for smooth animation
+    if (section.open) {
+      body.style.maxHeight = body.scrollHeight + 1000 + 'px';
+    }
+  });
+
+  // After render, fix max-heights
+  setTimeout(() => {
+    sidebar.querySelectorAll('.accordion-body:not(.collapsed)').forEach(b => {
+      b.style.maxHeight = b.scrollHeight + 'px';
+    });
+    sidebar.querySelectorAll('.sub-accordion-body:not(.collapsed)').forEach(b => {
+      b.style.maxHeight = b.scrollHeight + 'px';
+    });
+  }, 10);
+}
+
+// ============ Page switching ============
+function switchPage(pageKey) {
+  // Update top nav
+  document.querySelectorAll('#topNav a').forEach(a => {
+    a.classList.toggle('active', a.dataset.page === pageKey);
+  });
+  // Update page views
+  document.querySelectorAll('.page-view').forEach(p => {
+    p.classList.toggle('active', p.id === 'page-' + pageKey);
+  });
+  // Rebuild sidebar
+  buildSidebar(pageKey);
+}
+
+// Top nav click
+document.querySelectorAll('#topNav a').forEach(a => {
+  a.addEventListener('click', (e) => {
+    e.preventDefault();
+    switchPage(a.dataset.page);
+  });
+});
+
+// ============ Meta table data ============
+const data = [
+  ["TIBERO","DATA_COLLECT_SM...","DATA_COLLECT_SM...","Normal"],
+  ["TIBERO","DATA_MASTER_SM...","DATA_MASTER_SM...","Normal"],
+  ["TIBERO","DBA_LOCK_CHK","DBA_LOCK_CHK","Normal"],
+  ["TIBERO","DBA_SESS_CHK","DBA_SESS_CHK","Normal"],
+  ["TIBERO","DBA_SUDO_COL_TB","DBA_SUDO_COL_TB","Normal"],
+  ["TIBERO","DBA_SUDO_TAB_TB","DBA_SUDO_TAB_TB","Normal"],
+  ["TIBERO","DBA_TRANSACTION...","DBA_TRANSACTION...","Normal"],
+  ["TIBERO","DEBUGMSG_TB","DEBUGMSG_TB","Normal"],
+  ["TIBERO","DTBEMPIF","DTBEMPIF","Normal"],
+  ["TIBERO","DUBDAMSPC_TB","DUBDAMSPC_TB","Normal"],
+  ["TIBERO","DUB_DATATRANS_L...","DUB_DATATRANS_L...","Normal"],
+  ["TIBERO","EMP 태그정보","EMS_RWISTAGINFO...","Normal"],
+  ["TIBERO","EMP최대/최소값","EMS_RWISCRITICA...","Normal"],
+  ["TIBERO","ERR_LOG","ERR_LOG","Normal"],
+  ["TIBERO","FA와 OA사이의 데이터...","TEMP_DATA_TRNS_...","Normal"],
+  ["TIBERO","FCLTYTAG_TB","FCLTYTAG_TB","Normal"],
+  ["TIBERO","GETHKEPCOLIST_TB","GETHKEPCOLIST_TB","Normal"],
+  ["TIBERO","GONG_TB","GONG_TB","Normal"],
+  ["TIBERO","GROUP_SEND_TB","GROUP_SEND_TB","Normal"],
+  ["TIBERO","GROUP_VALUE_TB","GROUP_VALUE_TB","Normal"],
+  ["TIBERO","H2T_ERRORLOG","H2T_ERRORLOG","Normal"],
+  ["TIBERO","HIST_ALARM_LOG","HIST_ALARM_LOG","Normal"],
+  ["TIBERO","HIST_ALLDATA","HIST_ALLDATA","Normal"],
+  ["TIBERO","IWSPIDCLXLS_TB","IWSPIDCLXLS_TB","Normal"],
+  ["TIBERO","MIN_RECOVER","MIN_RECOVER","Normal"],
+  ["TIBERO","OPNRWIS2MEVHH_TB","OPNRWIS2MEVHH_TB","Normal"],
+  ["TIBERO","OPNRWIS2MEVMM...","OPNRWIS2MEVMM...","Normal"],
+  ["TIBERO","OPNRWIS2MEVSS_TB","OPNRWIS2MEVSS_TB","Normal"],
+  ["TIBERO","OPNRWIS3MEVHH_TB","OPNRWIS3MEVHH_TB","Normal"],
+  ["TIBERO","OPNRWIS3MEVMM...","OPNRWIS3MEVMM...","Normal"],
+  ["TIBERO","PATROLINFO_TB","PATROLINFO_TB","Normal"],
+  ["TIBERO","PIPE_FLOW_TB","PIPE_FLOW_TB","Normal"],
+  ["TIBERO","PLAN_WORK_TB","PLAN_WORK_TB","Normal"],
+  ["TIBERO","PUMP_STATUS_TB","PUMP_STATUS_TB","Normal"],
+  ["TIBERO","RAIN_DATA_TB","RAIN_DATA_TB","Normal"],
+  ["TIBERO","REALTIME_DATA_TB","REALTIME_DATA_TB","Normal"],
+  ["TIBERO","RECV_DATA_LOG","RECV_DATA_LOG","Normal"],
+  ["TIBERO","REPORT_DAILY_TB","REPORT_DAILY_TB","Normal"],
+  ["TIBERO","RWIS_ALARM_TB","RWIS_ALARM_TB","Normal"],
+  ["TIBERO","RWIS_CONFIG_TB","RWIS_CONFIG_TB","Normal"],
+  ["TIBERO","RWIS_MASTER_TB","RWIS_MASTER_TB","Normal"],
+  ["TIBERO","RWIS_STATION_TB","RWIS_STATION_TB","Normal"],
+  ["TIBERO","SCADA_DATA_TB","SCADA_DATA_TB","Normal"],
+  ["TIBERO","SENSOR_CALIB_TB","SENSOR_CALIB_TB","Normal"],
+  ["TIBERO","SENSOR_INFO_TB","SENSOR_INFO_TB","Normal"],
+  ["TIBERO","SYS_AUTH_TB","SYS_AUTH_TB","Normal"],
+  ["TIBERO","SYS_CODE_TB","SYS_CODE_TB","Normal"],
+  ["TIBERO","SYS_LOG_TB","SYS_LOG_TB","Normal"],
+  ["TIBERO","SYS_MENU_TB","SYS_MENU_TB","Normal"],
+  ["TIBERO","SYS_USER_TB","SYS_USER_TB","Normal"],
+];
+
+const tbody = document.getElementById('tableBody');
+data.forEach(row => {
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td>${row[0]}</td>
+    <td class="left">${row[1]}</td>
+    <td class="left">${row[2]}</td>
+    <td>${row[3]}</td>
+    <td></td><td></td><td></td>
+    <td>대상 / 대상</td><td></td>
+    <td><span class="icon-btn" title="논리">📋</span></td>
+    <td><span class="icon-btn" title="물리">📋</span></td>
+    <td><span class="icon-btn" title="ERD">🔗</span></td>
+  `;
+  tbody.appendChild(tr);
+});
+
+// ============ Init ============
+buildSidebar('meta');
+</script>
+</body>
+</html>

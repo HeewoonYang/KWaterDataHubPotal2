@@ -1,0 +1,46 @@
+@use '../../styles/variables' as *;
+
+.admin-page { display: flex; flex-direction: column; gap: $spacing-lg; }
+.page-header {
+  h2 { font-size: $font-size-xl; font-weight: 700; margin-bottom: $spacing-xs; }
+  .page-desc { font-size: $font-size-sm; color: $text-muted; }
+}
+.search-filter { background: #f5f7fa; border: 1px solid $border-color; border-radius: $radius-md; padding: $spacing-lg; }
+.filter-row { display: flex; align-items: flex-end; gap: $spacing-lg; flex-wrap: wrap; }
+.filter-group {
+  display: flex; flex-direction: column; gap: $spacing-xs;
+  label { font-size: $font-size-xs; color: $text-secondary; font-weight: 600; }
+  select, input { padding: 6px 10px; border: 1px solid $border-color; border-radius: $radius-sm; font-size: $font-size-sm; min-width: 130px; background: $white; outline: none; &:focus { border-color: $primary; } }
+  &.search-group { flex: 1; input { width: 100%; } }
+}
+.filter-actions { display: flex; gap: $spacing-sm; }
+
+.table-section { background: $white; border: 1px solid $border-color; border-radius: $radius-md; box-shadow: $shadow-sm; overflow: hidden; }
+.table-header { display: flex; justify-content: space-between; align-items: center; padding: $spacing-md $spacing-lg; border-bottom: 1px solid $border-color; }
+.table-count { font-size: $font-size-sm; color: $text-secondary; strong { color: $primary; } }
+.table-actions { display: flex; align-items: center; gap: $spacing-sm; }
+.btn-excel {
+  background: none; border: 1px solid #2e7d32; color: #2e7d32; width: 32px; height: 32px; border-radius: $radius-md; font-size: 18px; display: flex; align-items: center; justify-content: center; transition: all $transition-fast;
+  &:hover { background: #2e7d32; color: $white; }
+}
+.ag-grid-wrapper {
+  :deep(.ag-theme-alpine) { --ag-header-background-color: #4a6a8a; --ag-header-foreground-color: #fff; --ag-header-height: 38px; --ag-row-height: 40px; --ag-font-size: 13px; --ag-borders: none; --ag-row-border-color: #f0f0f0; --ag-selected-row-background-color: #e8f0fe; font-family: $font-family; }
+  :deep(.ag-header-cell-label) { font-weight: 600; font-size: 12px; color: #fff; }
+  :deep(.ag-header-cell) { color: #fff; }
+  :deep(.ag-header-select-all) { color: #fff; }
+}
+
+// 카드 스타일
+.stat-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: $spacing-md; }
+.stat-card {
+  background: $white; border: 1px solid $border-color; border-radius: $radius-md; padding: $spacing-lg; display: flex; align-items: center; gap: $spacing-md; box-shadow: $shadow-sm;
+  .stat-icon { width: 40px; height: 40px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 18px; color: $white; flex-shrink: 0; }
+  .stat-info { flex: 1; display: flex; flex-direction: column; }
+  .stat-value { font-size: $font-size-xl; font-weight: 700; }
+  .stat-label { font-size: $font-size-xs; color: $text-muted; }
+}
+
+@media (max-width: #{$bp-desktop - 1px}) and (min-width: $bp-tablet) {
+  .stat-cards { grid-template-columns: repeat(2, 1fr); }
+  .filter-row { flex-direction: column; align-items: stretch; }
+}
