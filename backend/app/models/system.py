@@ -1,7 +1,7 @@
 """SA-01. 공통/시스템 (8개 테이블)"""
 from datetime import datetime
 
-from sqlalchemy import Boolean, Column, Date, DateTime, Index, Integer, Numeric, String, Text
+from sqlalchemy import Boolean, Column, Date, DateTime, ForeignKey, Index, Integer, Numeric, String, Text, text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 
 from app.database import Base
@@ -82,8 +82,15 @@ class SysDrBackup(AuditMixin, Base):
     last_backup_at = Column(DateTime, comment="최근백업일시")
     last_backup_size_mb = Column(Numeric(12, 2), comment="최근백업크기MB")
     last_backup_status = Column(String(20), comment="최근백업상태 (SUCCESS/FAIL/RUNNING)")
+    # REQ-DHUB-005-003 확장
+    is_active = Column(Boolean, default=True, comment="스케줄활성여부")
+    next_run_at = Column(DateTime, comment="다음실행일시")
+    backup_command = Column(Text, comment="백업명령어 템플릿")
+    source_id = Column(UUID(as_uuid=True), comment="대상데이터소스ID")
+    last_error_message = Column(Text, comment="최근실패메시지")
 
     __table_args__ = (
+        Index("ix_sys_dr_active", "is_active", postgresql_where=text("is_active = true")),
         {"comment": "DR백업관리"},
     )
 
@@ -168,4 +175,55 @@ class SysDmzLink(AuditMixin, Base):
 
     __table_args__ = (
         {"comment": "DMZ연계"},
+    )
+
+
+class SysSmsLog(AuditMixin, Base):
+    """SMS발송이력"""
+    __tablename__ = "sys_sms_log"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=new_uuid, comment="SMS발송이력ID")
+    target_user_id = Column(UUID(as_uuid=True), ForeignKey("user_account.id", ondelete="SET NULL"), nullable=True, comment="대상사용자ID")
+    recipient_phone_masked = Column(String(30), nullable=False, comment="수신번호(마스킹)")
+    purpose = Column(String(30), nullable=False, comment="발송목적 (INITIAL_PWD/RESET_PWD/FIND_ID_OTP)")
+    payload_template = Column(String(50), comment="사용템플릿키")
+    status = Column(String(20), default="SENT", comment="발송상태 (SENT/FAIL)")
+    provider = Column(String(30), default="STUB", comment="발송채널 (STUB/DMZ_PROXY/EXTERNAL)")
+    error_message = Column(Text, comment="오류메시지")
+    sent_at = Column(DateTime, default=datetime.now, comment="발송일시")
+
+    __table_args__ = (
+        Index("ix_sys_sms_log_user", "target_user_id"),
+        Index("ix_sys_sms_log_purpose", "purpose"),
+        Index("ix_sys_sms_log_sent", "sent_at"),
+        Index("ix_sys_sms_log_not_deleted", "is_deleted", postgresql_where=text("is_deleted = false")),
+        {"comment": "SMS발송이력"},
+    )
+
+
+class SysInterfaceLog(AuditMixin, Base):
+    """연계실행이력"""
+    __tablename__ = "sys_interface_log"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=new_uuid, comment="이력ID")
+    interface_id = Column(UUID(as_uuid=True), ForeignKey("sys_interface.id", ondelete="CASCADE"), nullable=False, comment="인터페이스ID")
+    integration_id = Column(UUID(as_uuid=True), ForeignKey("sys_integration.id", ondelete="SET NULL"), nullable=True, comment="통합ID")
+    execution_type = Column(String(20), nullable=False, comment="실행유형 (MANUAL/SCHEDULED/EVENT)")
+    status = Column(String(20), nullable=False, comment="실행상태 (RUNNING/SUCCESS/FAIL/TIMEOUT)")
+    started_at = Column(DateTime, nullable=False, comment="시작일시")
+    finished_at = Column(DateTime, comment="종료일시")
+    duration_ms = Column(Integer, comment="소요시간MS")
+    total_records = Column(Integer, default=0, comment="전체건수")
+    success_records = Column(Integer, default=0, comment="성공건수")
+    error_records = Column(Integer, default=0, comment="오류건수")
+    error_message = Column(Text, comment="오류메시지")
+    request_payload = Column(JSONB, comment="요청정보")
+    response_summary = Column(JSONB, comment="응답요약")
+
+    __table_args__ = (
+        Index("ix_sys_if_log_interface", "interface_id"),
+        Index("ix_sys_if_log_integration", "integration_id"),
+        Index("ix_sys_if_log_started", "started_at"),
+        Index("ix_sys_if_log_not_deleted", "is_deleted", postgresql_where=text("is_deleted = false")),
+        {"comment": "연계실행이력"},
     )

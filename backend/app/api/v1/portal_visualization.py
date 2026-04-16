@@ -33,12 +33,13 @@ async def get_columns(
 
 @router.get("/charts", response_model=PageResponse[ChartResponse])
 async def list_charts(
-    page: int = 1, page_size: int = 20, search: str | None = None, chart_type: str | None = None,
+    page: int = 1, page_size: int = 20, search: str | None = None,
+    chart_type: str | None = None, dataset_id: UUID | None = None,
     db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
 ):
     params = PageRequest(page=page, page_size=page_size, search=search)
-    return await portal_visualization_service.list_charts(db, params, chart_type)
+    return await portal_visualization_service.list_charts(db, params, chart_type, dataset_id)
 
 
 @router.get("/charts/{chart_id}", response_model=APIResponse[ChartResponse])

@@ -1,4 +1,4 @@
-"""SA-02. 사용자/권한 (9개 테이블)"""
+"""SA-02. 사용자/권한 (10개 테이블)"""
 from datetime import datetime
 
 from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Index, Integer, String, Text
@@ -18,6 +18,7 @@ class UserAccount(AuditMixin, Base):
     password_hash = Column(String(255), comment="비밀번호해시")
     employee_no = Column(String(20), unique=True, comment="사번")
     sso_identifier = Column(String(200), comment="SSO식별자")
+    sso_provider = Column(String(100), comment="SSO제공자명 (OASIS_SAML/provider_name)")
     name = Column(String(100), nullable=False, comment="사용자명")
     email = Column(String(200), comment="이메일")
     phone = Column(String(20), comment="전화번호")
@@ -28,6 +29,7 @@ class UserAccount(AuditMixin, Base):
     last_login_at = Column(DateTime, comment="최근로그인일시")
     password_changed_at = Column(DateTime, comment="비밀번호변경일시")
     login_fail_count = Column(Integer, default=0, comment="로그인실패횟수")
+    must_change_password = Column(Boolean, default=False, comment="최초로그인비밀번호강제변경여부")
     agreed_terms_at = Column(DateTime, comment="약관동의일시")
 
     __table_args__ = (
@@ -44,8 +46,9 @@ class UserRole(AuditMixin, Base):
     __tablename__ = "user_role"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=new_uuid, comment="역할ID")
-    role_code = Column(String(50), nullable=False, unique=True, comment="역할코드 (ADMIN/MANAGER/INTERNAL/EXTERNAL)")
+    role_code = Column(String(50), nullable=False, unique=True, comment="역할코드 (SUPER_ADMIN/OPERATOR/ENGINEER/STEWARD/EXECUTIVE/KW_MANAGER/EMPLOYEE/EXTERNAL)")
     role_name = Column(String(100), nullable=False, comment="역할명")
+    role_group = Column(String(20), comment="역할그룹 (GENERAL/DATA_ADMIN/SYS_ADMIN/EXTERNAL)")
     description = Column(Text, comment="설명")
     is_system_role = Column(Boolean, default=False, comment="시스템역할여부")
     default_route = Column(String(200), comment="기본라우트경로")
@@ -86,6 +89,26 @@ class UserRolePermission(AuditMixin, Base):
     __table_args__ = (
         Index("uq_role_perm", "role_id", "permission_id", unique=True),
         {"comment": "역할권한매핑"},
+    )
+
+
+class UserScreenPermission(AuditMixin, Base):
+    """화면별권한"""
+    __tablename__ = "user_screen_permission"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=new_uuid, comment="화면권한ID")
+    role_id = Column(UUID(as_uuid=True), ForeignKey("user_role.id", ondelete="CASCADE"), nullable=False, comment="역할ID")
+    screen_code = Column(String(50), nullable=False, comment="화면코드")
+    screen_name = Column(String(200), comment="화면명")
+    screen_group = Column(String(50), comment="화면그룹 (시스템관리/사용자관리/데이터표준 등)")
+    can_create = Column(Boolean, default=False, comment="등록권한")
+    can_update = Column(Boolean, default=False, comment="수정권한")
+    can_delete = Column(Boolean, default=False, comment="삭제권한")
+
+    __table_args__ = (
+        Index("uq_role_screen", "role_id", "screen_code", unique=True),
+        Index("ix_screen_perm_role", "role_id"),
+        {"comment": "화면별권한"},
     )
 
 

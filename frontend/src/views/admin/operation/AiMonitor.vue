@@ -6,7 +6,7 @@
     </div>
     <div class="table-section">
       <div class="table-header"><span class="table-count">AI 모델 실행 현황 <strong>{{ rows.length }}</strong>건</span><div class="table-actions"><button class="btn-excel" title="엑셀 다운로드" @click="exportGridToExcel(cols, rows, 'AI_모니터링')"><FileExcelOutlined /></button></div></div>
-      <div class="ag-grid-wrapper"><AgGridVue class="ag-theme-alpine" :rowData="rows" :columnDefs="cols" :defaultColDef="defCol" :pagination="true" :paginationPageSize="10" domLayout="autoHeight" @row-clicked="onRowClick" /></div>
+      <div class="ag-grid-wrapper"><AgGridVue :tooltipShowDelay="0" class="ag-theme-alpine" :rowData="rows" :columnDefs="cols" :defaultColDef="defCol" :pagination="true" :paginationPageSize="10" domLayout="autoHeight" @row-clicked="onRowClick" /></div>
     </div>
 
     <!-- AI 모델 상세 팝업 -->
@@ -31,9 +31,10 @@
 </template>
 <script setup lang="ts">
 import { exportGridToExcel } from '../../../utils/exportExcel'
+import { defaultColDef as baseDefaultColDef, withHeaderTooltips } from '../../../utils/gridHelper'
 import { ref, onMounted, type Component } from 'vue'
 import { AgGridVue } from 'ag-grid-vue3'
-import { AllCommunityModule, ModuleRegistry, type ColDef } from 'ag-grid-community'
+import { AllCommunityModule, ModuleRegistry } from 'ag-grid-community'
 import { RobotOutlined, ExperimentOutlined, AlertOutlined, CheckCircleOutlined, FileExcelOutlined, EditOutlined } from '@ant-design/icons-vue'
 import AdminModal from '../../../components/AdminModal.vue'
 import { adminOperationApi } from '../../../api/admin.api'
@@ -41,22 +42,22 @@ ModuleRegistry.registerModules([AllCommunityModule])
 
 const showDetail = ref(false)
 const detailData = ref<any>({})
-const defCol = { sortable: true, resizable: true, flex: 1, minWidth: 80 }
+const defCol = { ...baseDefaultColDef }
 const stats: { icon: Component; label: string; value: string; color: string }[] = [
   { icon: RobotOutlined, label: '활성 모델', value: '5', color: '#0066CC' },
   { icon: ExperimentOutlined, label: '금일 추론', value: '12,500', color: '#28A745' },
   { icon: AlertOutlined, label: '이상 탐지', value: '23', color: '#DC3545' },
   { icon: CheckCircleOutlined, label: '정확도', value: '96.5%', color: '#FFC107' },
 ]
-const cols: ColDef[] = [
-  { headerName: 'No', valueGetter: 'node.rowIndex + 1', width: 50, maxWidth: 50, flex: 0 },
+const cols = withHeaderTooltips([
+  { headerName: 'No', valueGetter: 'node.rowIndex + 1', flex: 0.4, minWidth: 45 },
   { headerName: 'AI 모델명', field: 'name', flex: 2 },
   { headerName: '유형', field: 'type', width: 110 },
   { headerName: '대상 데이터', field: 'target', flex: 1 },
   { headerName: '금일 실행', field: 'runs', width: 90 },
   { headerName: '정확도', field: 'accuracy', width: 80 },
   { headerName: '상태', field: 'status', width: 70 },
-]
+])
 const rows = ref([
   { name: '수질 이상값 탐지', type: '이상탐지', target: '수질 센서 데이터', runs: '4,200', accuracy: '97.2%', status: '활성' },
   { name: '수위 예측 모델', type: '시계열 예측', target: '댐 수위 데이터', runs: '2,880', accuracy: '95.8%', status: '활성' },

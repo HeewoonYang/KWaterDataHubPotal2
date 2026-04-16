@@ -4,9 +4,15 @@
     {
       "name": "frontend-dev",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev", "--", "--host", "0.0.0.0"],
-      "port": 5173,
+      "runtimeArgs": ["run", "dev", "--", "--host", "0.0.0.0", "--port", "5199", "--strictPort"],
+      "port": 5199,
       "cwd": "frontend"
+    },
+    {
+      "name": "docker-portal",
+      "runtimeExecutable": "docker",
+      "runtimeArgs": ["compose", "up", "-d", "--build"],
+      "port": 8088
     }
   ]
 }

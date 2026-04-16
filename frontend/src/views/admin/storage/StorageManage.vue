@@ -16,7 +16,7 @@
         <div class="table-actions"><button class="btn btn-success"><PlusOutlined /> 저장소 추가</button><button class="btn-excel" title="엑셀 다운로드" @click="exportGridToExcel(cols, rowData, '저장소_관리')"><FileExcelOutlined /></button></div>
       </div>
       <div class="ag-grid-wrapper">
-        <AgGridVue class="ag-theme-alpine" :rowData="rowData" :columnDefs="cols" :defaultColDef="{ sortable: true, resizable: true, flex: 1, minWidth: 80 }" :pagination="true" :paginationPageSize="10" domLayout="autoHeight" @row-clicked="onRowClick" />
+        <AgGridVue :tooltipShowDelay="0" class="ag-theme-alpine" :rowData="rowData" :columnDefs="cols" :defaultColDef="defCol" :pagination="true" :paginationPageSize="10" domLayout="autoHeight" @row-clicked="onRowClick" />
       </div>
     </div>
 
@@ -43,9 +43,10 @@
 </template>
 <script setup lang="ts">
 import { exportGridToExcel } from '../../../utils/exportExcel'
+import { defaultColDef as baseDefaultColDef, withHeaderTooltips } from '../../../utils/gridHelper'
 import { ref, onMounted, type Component } from 'vue'
 import { AgGridVue } from 'ag-grid-vue3'
-import { AllCommunityModule, ModuleRegistry, type ColDef } from 'ag-grid-community'
+import { AllCommunityModule, ModuleRegistry } from 'ag-grid-community'
 import { HddOutlined, DatabaseOutlined, CloudOutlined, FileOutlined, PlusOutlined, FileExcelOutlined, EditOutlined } from '@ant-design/icons-vue'
 import AdminModal from '../../../components/AdminModal.vue'
 import { adminStorageApi } from '../../../api/admin.api'
@@ -59,16 +60,17 @@ const stats: { icon: Component; label: string; value: string; color: string }[] 
   { icon: CloudOutlined, label: '오브젝트 저장소', value: '2', color: '#9b59b6' },
   { icon: FileOutlined, label: '파일 저장소', value: '3', color: '#FFC107' },
 ]
-const cols: ColDef[] = [
-  { headerName: 'No', valueGetter: 'node.rowIndex + 1', width: 50, maxWidth: 50, flex: 0 },
+const defCol = { ...baseDefaultColDef }
+const cols = withHeaderTooltips([
+  { headerName: 'No', valueGetter: 'node.rowIndex + 1', flex: 0.4, minWidth: 45 },
   { headerName: '저장소명', field: 'name', flex: 2, minWidth: 160 },
-  { headerName: '유형', field: 'type', width: 100, maxWidth: 100, flex: 0 },
+  { headerName: '유형', field: 'type', flex: 0.7, minWidth: 90 },
   { headerName: '호스트', field: 'host', flex: 1, minWidth: 120 },
-  { headerName: '전체 용량', field: 'totalSize', width: 90, maxWidth: 90, flex: 0 },
-  { headerName: '사용 용량', field: 'usedSize', width: 90, maxWidth: 90, flex: 0 },
-  { headerName: '사용률', field: 'usage', width: 75, maxWidth: 75, flex: 0 },
-  { headerName: '상태', field: 'status', width: 65, maxWidth: 65, flex: 0 },
-]
+  { headerName: '전체 용량', field: 'totalSize', flex: 0.7, minWidth: 80 },
+  { headerName: '사용 용량', field: 'usedSize', flex: 0.7, minWidth: 80 },
+  { headerName: '사용률', field: 'usage', flex: 0.6, minWidth: 65 },
+  { headerName: '상태', field: 'status', flex: 0.5, minWidth: 60 },
+])
 const rowData = ref([
   { name: 'PostgreSQL Master', type: 'RDB', host: '10.0.1.10', totalSize: '2 TB', usedSize: '1.2 TB', usage: '60%', status: '정상' },
   { name: 'PostgreSQL Replica', type: 'RDB', host: '10.0.1.11', totalSize: '2 TB', usedSize: '1.2 TB', usage: '60%', status: '정상' },
@@ -78,6 +80,8 @@ const rowData = ref([
   { name: 'NFS 파일서버', type: '파일', host: '10.0.7.10', totalSize: '5 TB', usedSize: '2.1 TB', usage: '42%', status: '정상' },
   { name: 'HDFS Cluster', type: '분산파일', host: '10.0.8.10-13', totalSize: '20 TB', usedSize: '8.4 TB', usage: '42%', status: '정상' },
   { name: 'Redis Sentinel', type: '캐시', host: '10.0.3.20', totalSize: '64 GB', usedSize: '12 GB', usage: '19%', status: '정상' },
+  { name: 'GPU DB Cluster', type: 'GPU가속', host: '10.0.9.10-12', totalSize: '1 TB', usedSize: '128 GB', usage: '12%', status: '정상' },
+  { name: '분석 PostgreSQL', type: 'RDB (분석)', host: '10.0.1.30', totalSize: '4 TB', usedSize: '256 GB', usage: '6%', status: '정상' },
 ])
 
 onMounted(async () => {

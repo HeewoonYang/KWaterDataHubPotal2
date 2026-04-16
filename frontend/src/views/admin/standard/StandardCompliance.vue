@@ -21,22 +21,44 @@
     <div class="table-section">
       <div class="table-header">
         <span class="table-count">전체 <strong>{{ rowData.length }}</strong>건</span>
-        <div class="table-actions"><button class="btn btn-success"><PlusOutlined /> 등록</button><button class="btn-excel" title="엑셀 다운로드" @click="exportGridToExcel(cols, rowData, '표준_준수')"><FileExcelOutlined /></button></div>
+        <div class="table-actions"><button class="btn btn-success" @click="runCheck"><CheckCircleOutlined /> 점검 실행</button><button class="btn-excel" title="엑셀 다운로드" @click="exportGridToExcel(cols, rowData, '표준_준수')"><FileExcelOutlined /></button></div>
       </div>
       <div class="ag-grid-wrapper">
-        <AgGridVue class="ag-theme-alpine" :rowData="rowData" :columnDefs="cols" :defaultColDef="{ sortable: true, resizable: true, flex: 1, minWidth: 80 }" :pagination="true" :paginationPageSize="10" :rowSelection="'multiple'" domLayout="autoHeight" />
+        <AgGridVue :tooltipShowDelay="0" class="ag-theme-alpine" :rowData="rowData" :columnDefs="cols" :defaultColDef="defCol" :pagination="true" :paginationPageSize="10" :rowSelection="'multiple'" domLayout="autoHeight" @row-clicked="onRowClick" />
       </div>
     </div>
+
+    <!-- 표준 준수 상세 팝업 -->
+    <AdminModal :visible="showDetail" :title="detailData.name + ' 상세'" size="md" @close="showDetail = false">
+      <div class="modal-section">
+        <div class="modal-section-title">준수 현황</div>
+        <div class="modal-info-grid">
+          <div class="modal-info-item"><span class="info-label">표준명</span><span class="info-value">{{ detailData.name }}</span></div>
+          <div class="modal-info-item"><span class="info-label">분류</span><span class="info-value">{{ detailData.category }}</span></div>
+          <div class="modal-info-item"><span class="info-label">총 항목</span><span class="info-value">{{ detailData.total }}</span></div>
+          <div class="modal-info-item"><span class="info-label">준수</span><span class="info-value">{{ detailData.passed }}</span></div>
+          <div class="modal-info-item"><span class="info-label">미준수</span><span class="info-value">{{ detailData.failed }}</span></div>
+          <div class="modal-info-item"><span class="info-label">준수율</span><span class="info-value">{{ detailData.rate }}</span></div>
+          <div class="modal-info-item"><span class="info-label">최근 검사</span><span class="info-value">{{ detailData.lastCheck }}</span></div>
+        </div>
+      </div>
+      <template #footer>
+        <button class="btn btn-outline" @click="showDetail = false">닫기</button>
+      </template>
+    </AdminModal>
   </div>
 </template>
 <script setup lang="ts">
 import { exportGridToExcel } from '../../../utils/exportExcel'
+import { defaultColDef as baseDefaultColDef, withHeaderTooltips } from '../../../utils/gridHelper'
 import { ref, onMounted, type Component } from 'vue'
 import { AgGridVue } from 'ag-grid-vue3'
-import { AllCommunityModule, ModuleRegistry, type ColDef } from 'ag-grid-community'
-import { CheckCircleOutlined, WarningOutlined, FileTextOutlined, AuditOutlined, SearchOutlined, PlusOutlined, FileExcelOutlined } from '@ant-design/icons-vue'
+import { AllCommunityModule, ModuleRegistry } from 'ag-grid-community'
+import { CheckCircleOutlined, WarningOutlined, FileTextOutlined, AuditOutlined, SearchOutlined, FileExcelOutlined } from '@ant-design/icons-vue'
 ModuleRegistry.registerModules([AllCommunityModule])
 import { qualityApi } from '../../../api/standard.api'
+import { message } from '../../../utils/message'
+import AdminModal from '../../../components/AdminModal.vue'
 const f1 = ref(''), f2 = ref(''), f3 = ref('')
 const stats: { icon: Component; label: string; value: string; color: string }[] = [
   { icon: AuditOutlined, label: '전체 표준', value: '1,842', color: '#0066CC' },
@@ -44,17 +66,18 @@ const stats: { icon: Component; label: string; value: string; color: string }[] 
   { icon: WarningOutlined, label: '미준수', value: '162', color: '#DC3545' },
   { icon: FileTextOutlined, label: '평균 준수율', value: '91.2%', color: '#FFC107' },
 ]
-const cols: ColDef[] = [
-  { headerCheckboxSelection: true, checkboxSelection: true, width: 40, maxWidth: 40, flex: 0, sortable: false, resizable: false },
-  { headerName: 'No', valueGetter: 'node.rowIndex + 1', width: 50, maxWidth: 50, flex: 0 },
+const defCol = { ...baseDefaultColDef }
+const cols = withHeaderTooltips([
+  { headerCheckboxSelection: true, checkboxSelection: true, flex: 0, minWidth: 36, sortable: false, resizable: false },
+  { headerName: 'No', valueGetter: 'node.rowIndex + 1', flex: 0.4, minWidth: 45 },
   { headerName: '표준명', field: 'name', flex: 2, minWidth: 180 },
-  { headerName: '분류', field: 'category', width: 80, maxWidth: 80, flex: 0 },
-  { headerName: '총 항목', field: 'total', width: 75, maxWidth: 75, flex: 0 },
-  { headerName: '준수', field: 'passed', width: 65, maxWidth: 65, flex: 0 },
-  { headerName: '미준수', field: 'failed', width: 70, maxWidth: 70, flex: 0 },
-  { headerName: '준수율', field: 'rate', width: 75, maxWidth: 75, flex: 0 },
+  { headerName: '분류', field: 'category', flex: 0.6, minWidth: 70 },
+  { headerName: '총 항목', field: 'total', flex: 0.6, minWidth: 65 },
+  { headerName: '준수', field: 'passed', flex: 0.5, minWidth: 60 },
+  { headerName: '미준수', field: 'failed', flex: 0.5, minWidth: 65 },
+  { headerName: '준수율', field: 'rate', flex: 0.6, minWidth: 65 },
   { headerName: '최근 검사', field: 'lastCheck', flex: 1, minWidth: 120 },
-]
+])
 const rowData = ref([
   { name: '표준단어사전', category: '단어', total: 520, passed: 498, failed: 22, rate: '95.8%', lastCheck: '2026-03-25' },
   { name: '표준용어사전', category: '용어', total: 380, passed: 352, failed: 28, rate: '92.6%', lastCheck: '2026-03-25' },
@@ -64,12 +87,16 @@ const rowData = ref([
   { name: '테이블명 표준', category: '용어', total: 100, passed: 90, failed: 10, rate: '90.0%', lastCheck: '2026-03-23' },
 ])
 
-onMounted(async () => {
+const showDetail = ref(false)
+const detailData = ref<any>({})
+
+async function loadData() {
   try {
     const res = await qualityApi.listCompliance()
     const items = res.data.data
     if (items && items.length > 0) {
       rowData.value = items.map((r: any) => ({
+        _raw: r,
         name: r.standard_name || '', category: r.category || '',
         total: r.total_items || 0, passed: r.passed_items || 0, failed: r.failed_items || 0,
         rate: r.compliance_rate ? `${r.compliance_rate}%` : '0%',
@@ -79,6 +106,25 @@ onMounted(async () => {
   } catch (e) {
     console.warn('StandardCompliance: API call failed, using mock data', e)
   }
-})
+}
+
+async function runCheck() {
+  try {
+    await qualityApi.runComplianceCheck()
+    message.success('표준 준수 점검이 완료되었습니다.')
+    await loadData()
+  } catch (e) {
+    message.error('점검 실행에 실패했습니다.')
+  }
+}
+
+function onRowClick(event: any) {
+  detailData.value = event.data
+  showDetail.value = true
+}
+
+onMounted(() => loadData())
 </script>
-<style lang="scss" scoped>@use '../../../styles/variables' as *; @use '../admin-common.scss';</style>
+<style lang="scss" scoped>@use '../../../styles/variables' as *; @use '../admin-common.scss';
+:deep(.ag-row) { cursor: pointer; }
+</style>

@@ -3,7 +3,7 @@
     <div class="page-header"><h2>패키지 검증</h2><p class="page-desc">설치된 패키지 버전 및 호환성을 검증합니다.</p></div>
     <div class="table-section">
       <div class="table-header"><span class="table-count">패키지 목록 <strong>{{ rows.length }}</strong>건</span><div class="table-actions"><button class="btn btn-primary btn-sm"><SyncOutlined /> 전체 검증</button><button class="btn-excel" title="엑셀 다운로드" @click="exportGridToExcel(cols, rows, '패키지_검증')"><FileExcelOutlined /></button></div></div>
-      <div class="ag-grid-wrapper"><AgGridVue class="ag-theme-alpine" :rowData="rows" :columnDefs="cols" :defaultColDef="defCol" :pagination="true" :paginationPageSize="10" domLayout="autoHeight" @row-clicked="onRowClick" /></div>
+      <div class="ag-grid-wrapper"><AgGridVue :tooltipShowDelay="0" class="ag-theme-alpine" :rowData="rows" :columnDefs="cols" :defaultColDef="defCol" :pagination="true" :paginationPageSize="10" domLayout="autoHeight" @row-clicked="onRowClick" /></div>
     </div>
 
     <!-- 패키지 상세 팝업 -->
@@ -28,9 +28,10 @@
 </template>
 <script setup lang="ts">
 import { exportGridToExcel } from '../../../utils/exportExcel'
+import { defaultColDef as baseDefaultColDef, withHeaderTooltips } from '../../../utils/gridHelper'
 import { ref, onMounted } from 'vue'
 import { AgGridVue } from 'ag-grid-vue3'
-import { AllCommunityModule, ModuleRegistry, type ColDef } from 'ag-grid-community'
+import { AllCommunityModule, ModuleRegistry } from 'ag-grid-community'
 import { SyncOutlined, FileExcelOutlined, EditOutlined } from '@ant-design/icons-vue'
 import AdminModal from '../../../components/AdminModal.vue'
 import { adminSystemApi } from '../../../api/admin.api'
@@ -38,16 +39,16 @@ ModuleRegistry.registerModules([AllCommunityModule])
 
 const showDetail = ref(false)
 const detailData = ref<any>({})
-const defCol = { sortable: true, resizable: true, flex: 1, minWidth: 80 }
-const cols: ColDef[] = [
-  { headerName: 'No', valueGetter: 'node.rowIndex + 1', width: 50, maxWidth: 50, flex: 0 },
+const defCol = { ...baseDefaultColDef }
+const cols = withHeaderTooltips([
+  { headerName: 'No', valueGetter: 'node.rowIndex + 1', flex: 0.4, minWidth: 45 },
   { headerName: '패키지명', field: 'name', flex: 2 },
   { headerName: '현재 버전', field: 'current', width: 100 },
   { headerName: '권장 버전', field: 'recommended', width: 100 },
   { headerName: '분류', field: 'category', width: 100 },
   { headerName: '호환성', field: 'status', width: 80 },
   { headerName: '검증일', field: 'checkedAt', width: 110 },
-]
+])
 const rows = ref([
   { name: 'Vue.js', current: '3.4.21', recommended: '3.4.21', category: 'Frontend', status: '적합', checkedAt: '2026-03-25' },
   { name: 'FastAPI', current: '0.110.0', recommended: '0.110.0', category: 'Backend', status: '적합', checkedAt: '2026-03-25' },

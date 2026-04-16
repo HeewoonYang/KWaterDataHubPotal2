@@ -3,6 +3,7 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+    image: datahub/frontend:v0.1.0
     container_name: datahub-portal-frontend
     ports:
       - "8088:80"
@@ -14,7 +15,10 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+    image: datahub/backend:v0.1.0
     container_name: datahub-portal-backend
+    # 로컬 개발용 핫리로드 (프로덕션 이미지 기본 CMD 는 multi-worker, --reload 없음)
+    command: ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"]
     ports:
       - "8001:8000"
     environment:
@@ -22,16 +26,26 @@ services:
       - DATABASE_URL_SYNC=postgresql+psycopg://datahub:datahub@postgres:5432/datahub
       - REDIS_URL=redis://redis:6379/0
       - OPENMETADATA_URL=http://openmetadata:8585/api
-      - CORS_ORIGINS=["http://localhost:8088","http://localhost:5173"]
+      - CORS_ORIGINS=["*"]
+      - JWT_SECRET_KEY=local-dev-only-change-in-production-abcdef
+      # DB 비밀번호 등 민감정보 AES-256-GCM 암호화 키 (운영에선 K8s Secret 주입)
+      - DB_SECRET_ENCRYPTION_KEY=bG9jYWwtZGV2LW9ubHktY2hhbmdlLWluLXByb2R1Y3Rpb24=
+      - OBJECT_STORAGE_ENDPOINT=minio:9000
+      - OBJECT_STORAGE_ACCESS_KEY=minioadmin
+      - OBJECT_STORAGE_SECRET_KEY=minioadmin
+      - OBJECT_STORAGE_BUCKET=datahub
+      - OBJECT_STORAGE_SECURE=false
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_started
+      minio:
+        condition: service_healthy
     restart: unless-stopped
 
   postgres:
-    image: postgres:16-alpine
+    image: postgis/postgis:16-3.4-alpine
     container_name: datahub-postgres
     environment:
       POSTGRES_DB: datahub
@@ -49,38 +63,104 @@ services:
     restart: unless-stopped
 
   redis:
-    image: redis:7-alpine
+    image: redis:7.4-alpine
     container_name: datahub-redis
+    command: ["redis-server", "--appendonly", "yes", "--appendfsync", "everysec"]
     ports:
       - "6379:6379"
+    volumes:
+      - redisdata:/data
+    restart: unless-stopped
+
+  minio:
+    image: quay.io/minio/minio:RELEASE.2024-12-18T13-15-44Z
+    container_name: datahub-minio
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - miniodata:/data
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:9000/minio/health/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     restart: unless-stopped
 
   celery-worker:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
+    image: datahub/backend:v0.1.0
     container_name: datahub-celery-worker
     command: celery -A app.tasks worker --loglevel=info
     environment:
       - DATABASE_URL=postgresql+asyncpg://datahub:datahub@postgres:5432/datahub
       - DATABASE_URL_SYNC=postgresql+psycopg://datahub:datahub@postgres:5432/datahub
       - REDIS_URL=redis://redis:6379/0
+      - JWT_SECRET_KEY=local-dev-only-change-in-production-abcdef
+      - DB_SECRET_ENCRYPTION_KEY=bG9jYWwtZGV2LW9ubHktY2hhbmdlLWluLXByb2R1Y3Rpb24=
+      - OBJECT_STORAGE_ENDPOINT=minio:9000
+      - OBJECT_STORAGE_ACCESS_KEY=minioadmin
+      - OBJECT_STORAGE_SECRET_KEY=minioadmin
+      - OBJECT_STORAGE_BUCKET=datahub
+      - OBJECT_STORAGE_SECURE=false
     depends_on:
       - backend
       - redis
+      - minio
     restart: unless-stopped
 
   celery-beat:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
+    image: datahub/backend:v0.1.0
     container_name: datahub-celery-beat
     command: celery -A app.tasks beat --loglevel=info
     environment:
       - REDIS_URL=redis://redis:6379/0
+      - JWT_SECRET_KEY=local-dev-only-change-in-production-abcdef
+      - DB_SECRET_ENCRYPTION_KEY=bG9jYWwtZGV2LW9ubHktY2hhbmdlLWluLXByb2R1Y3Rpb24=
     depends_on:
       - redis
     restart: unless-stopped
 
+  # 외부 인터넷 접속용 임시 HTTPS 터널 (Cloudflare Quick Tunnel)
+  # - 계정/도메인 불필요, 기동 시 <랜덤>.trycloudflare.com 주소 자동 발급
+  # - 방화벽/포트포워딩 불필요 (아웃바운드 443만 사용)
+  # - 접속 URL 확인: docker compose logs -f cloudflared | grep trycloudflare.com
+  # - 주의: 컨테이너 재기동 시 URL 변경. 고정 도메인 필요 시 named tunnel + Cloudflare 계정 사용
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: datahub-cloudflared
+    command: tunnel --no-autoupdate --url http://frontend:80
+    depends_on:
+      - frontend
+    restart: unless-stopped
+
+  # Oracle Free (23c) — 테스트/개발용. 운영은 별도 관리 (컨테이너에 운영 DB 두지 않음)
+  # 최초 기동 시 2~3분 소요. Healthy 될 때까지 backend 가 연결 실패할 수 있음.
+  oracle-test:
+    image: gvenzl/oracle-free:23-slim
+    container_name: datahub-oracle-test
+    environment:
+      ORACLE_PASSWORD: oracle123
+      APP_USER: hr
+      APP_USER_PASSWORD: hr123
+      ORACLE_DATABASE: TESTPDB
+    ports:
+      - "1521:1521"
+    volumes:
+      - oracle-data:/opt/oracle/oradata
+    healthcheck:
+      test: ["CMD", "healthcheck.sh"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 180s
+    restart: unless-stopped
+
 volumes:
   pgdata:
+  redisdata:
+  miniodata:
+  oracle-data:

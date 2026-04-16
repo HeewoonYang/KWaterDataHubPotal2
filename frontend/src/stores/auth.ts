@@ -3,7 +3,8 @@ import { ref, computed } from 'vue'
 import { authApi } from '../api/auth.api'
 import type { UserProfile } from '../api/auth.api'
 
-export type UserRole = 'ADMIN' | 'MANAGER' | 'INTERNAL' | 'EXTERNAL'
+export type UserRole = 'SUPER_ADMIN' | 'OPERATOR' | 'ENGINEER' | 'STEWARD' | 'EXECUTIVE' | 'KW_MANAGER' | 'EMPLOYEE' | 'EXTERNAL'
+export type RoleGroup = 'SYS_ADMIN' | 'DATA_ADMIN' | 'GENERAL' | 'EXTERNAL'
 
 export interface User {
   id: string
@@ -12,18 +13,26 @@ export interface User {
   email: string
   department?: string
   role: UserRole
+  roleGroup: RoleGroup
   userType: string
   dataGrades: number[]
+  screenPermissions: Record<string, { create: boolean; update: boolean; delete: boolean }>
+  mustChangePassword?: boolean
 }
 
-const ROLE_CONFIG: Record<UserRole, { label: string; defaultRoute: string; dataGrades: number[] }> = {
-  ADMIN: { label: '시스템 관리자', defaultRoute: '/portal', dataGrades: [1, 2, 3] },
-  MANAGER: { label: '데이터 관리자', defaultRoute: '/portal', dataGrades: [1, 2, 3] },
-  INTERNAL: { label: '내부 사용자', defaultRoute: '/portal', dataGrades: [2, 3] },
-  EXTERNAL: { label: '외부 사용자', defaultRoute: '/portal', dataGrades: [3] },
+const ROLE_CONFIG: Record<UserRole, { label: string; defaultRoute: string; dataGrades: number[]; group: RoleGroup }> = {
+  SUPER_ADMIN: { label: '수퍼관리자', defaultRoute: '/portal', dataGrades: [1, 2, 3], group: 'SYS_ADMIN' },
+  OPERATOR: { label: '운영자', defaultRoute: '/portal', dataGrades: [1, 2, 3], group: 'SYS_ADMIN' },
+  ENGINEER: { label: '데이터엔지니어', defaultRoute: '/portal', dataGrades: [1, 2, 3], group: 'DATA_ADMIN' },
+  STEWARD: { label: '데이터스튜어드', defaultRoute: '/portal', dataGrades: [1, 2, 3], group: 'DATA_ADMIN' },
+  EXECUTIVE: { label: '수공임원', defaultRoute: '/portal', dataGrades: [2, 3], group: 'GENERAL' },
+  KW_MANAGER: { label: '수공관리자', defaultRoute: '/portal', dataGrades: [2, 3], group: 'GENERAL' },
+  EMPLOYEE: { label: '수공직원', defaultRoute: '/portal', dataGrades: [2, 3], group: 'GENERAL' },
+  EXTERNAL: { label: '외부사용자', defaultRoute: '/portal', dataGrades: [3], group: 'EXTERNAL' },
 }
 
 function profileToUser(p: UserProfile): User {
+  const roleConfig = ROLE_CONFIG[p.role_code as UserRole]
   return {
     id: p.id,
     username: p.login_id,
@@ -31,8 +40,11 @@ function profileToUser(p: UserProfile): User {
     email: p.email || '',
     department: p.department_name || undefined,
     role: p.role_code as UserRole,
+    roleGroup: (p.role_group || roleConfig?.group || 'EXTERNAL') as RoleGroup,
     userType: p.user_type === 'INTERNAL' ? 'internal' : 'external',
     dataGrades: p.data_grades,
+    screenPermissions: p.screen_permissions || {},
+    mustChangePassword: !!p.must_change_password,
   }
 }
 
@@ -42,30 +54,65 @@ export const useAuthStore = defineStore('auth', () => {
 
   const isAuthenticated = computed(() => !!token.value)
   const userRole = computed(() => user.value?.role ?? null)
-  const isAdmin = computed(() => user.value?.role === 'ADMIN')
-  const isManager = computed(() => user.value?.role === 'MANAGER')
-  const isAdminOrManager = computed(() => isAdmin.value || isManager.value)
-  const roleLabel = computed(() => user.value ? ROLE_CONFIG[user.value.role].label : '')
-  const defaultRoute = computed(() => user.value ? ROLE_CONFIG[user.value.role].defaultRoute : '/login')
+  const roleGroup = computed(() => user.value?.roleGroup ?? null)
 
-  const canAccessAdmin = computed(() => isAdminOrManager.value)
-  const canAccessVisualization = computed(() => user.value?.role !== 'EXTERNAL')
-  const canAccessAISearch = computed(() => user.value?.role !== 'EXTERNAL')
+  const isSysAdmin = computed(() => roleGroup.value === 'SYS_ADMIN')
+  const isDataAdmin = computed(() => roleGroup.value === 'DATA_ADMIN')
+  const isGeneral = computed(() => roleGroup.value === 'GENERAL')
+  const isExternal = computed(() => roleGroup.value === 'EXTERNAL')
+
+  const roleLabel = computed(() => user.value ? (ROLE_CONFIG[user.value.role]?.label || user.value.role) : '')
+  const mustChangePassword = computed(() => !!user.value?.mustChangePassword)
+  const defaultRoute = computed(() => {
+    if (!user.value) return '/login'
+    // 임시/초기 비밀번호 상태이면 강제 변경 페이지로 우선 이동
+    if (user.value.mustChangePassword) return '/portal/change-password?forced=1'
+    return ROLE_CONFIG[user.value.role]?.defaultRoute || '/portal'
+  })
+
+  function clearMustChangePassword() {
+    if (user.value) {
+      user.value = { ...user.value, mustChangePassword: false }
+      saveToStorage()
+    }
+  }
+
+  const isAdminOrManager = computed(() => isSysAdmin.value || isDataAdmin.value)
+  const canAccessAdmin = computed(() => isSysAdmin.value || isDataAdmin.value)
+  const canAccessVisualization = computed(() => !isExternal.value)
+  const canAccessAISearch = computed(() => !isExternal.value)
 
   const adminMenuAccess = computed(() => {
     if (!user.value) return {}
-    const role = user.value.role
+    const g = user.value.roleGroup
+    const isSA = g === 'SYS_ADMIN'
+    const isDA = g === 'DATA_ADMIN'
     return {
-      system: role === 'ADMIN',
-      user: role === 'ADMIN',
-      standard: role === 'ADMIN' || role === 'MANAGER',
-      collection: role === 'ADMIN' || role === 'MANAGER',
-      cleansing: role === 'ADMIN' || role === 'MANAGER',
-      storage: role === 'ADMIN',
-      distribution: role === 'ADMIN' || role === 'MANAGER',
-      operation: role === 'ADMIN',
+      system: isSA,
+      user: isSA,
+      standard: isSA || isDA,
+      collection: isSA || isDA,
+      cleansing: isSA || isDA,
+      storage: isSA || isDA,
+      distribution: isSA || isDA,
+      ontology: isSA || isDA,
+      operation: isSA || isDA,
     }
   })
+
+  function canCreate(screenCode: string): boolean {
+    return user.value?.screenPermissions?.[screenCode]?.create ?? false
+  }
+  function canUpdate(screenCode: string): boolean {
+    return user.value?.screenPermissions?.[screenCode]?.update ?? false
+  }
+  function canDelete(screenCode: string): boolean {
+    return user.value?.screenPermissions?.[screenCode]?.delete ?? false
+  }
+  function canCUD(screenCode: string) {
+    const sp = user.value?.screenPermissions?.[screenCode]
+    return { create: sp?.create ?? false, update: sp?.update ?? false, delete: sp?.delete ?? false }
+  }
 
   function restoreFromStorage() {
     try {
@@ -104,6 +151,18 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  async function loginWithSsoResponse(data: any): Promise<{ success: boolean; message: string }> {
+    try {
+      user.value = profileToUser(data.user)
+      token.value = data.access_token
+      saveToStorage()
+      sessionStorage.setItem('datahub_session_active', '1')
+      return { success: true, message: '' }
+    } catch (err: any) {
+      return { success: false, message: 'SSO 인증 처리에 실패했습니다.' }
+    }
+  }
+
   async function logout() {
     try {
       await authApi.logout()
@@ -121,8 +180,11 @@ export const useAuthStore = defineStore('auth', () => {
     token,
     isAuthenticated,
     userRole,
-    isAdmin,
-    isManager,
+    roleGroup,
+    isSysAdmin,
+    isDataAdmin,
+    isGeneral,
+    isExternal,
     isAdminOrManager,
     roleLabel,
     defaultRoute,
@@ -130,7 +192,14 @@ export const useAuthStore = defineStore('auth', () => {
     canAccessVisualization,
     canAccessAISearch,
     adminMenuAccess,
+    canCreate,
+    canUpdate,
+    canDelete,
+    canCUD,
     login,
+    loginWithSsoResponse,
     logout,
+    mustChangePassword,
+    clearMustChangePassword,
   }
 })

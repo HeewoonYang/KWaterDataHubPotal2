@@ -21,6 +21,10 @@
           </router-link>
         </nav>
         <div class="header-right">
+          <router-link to="/portal/cart" class="cart-link" v-if="cartStore.itemCount > 0">
+            <ShoppingCartOutlined />
+            <span class="cart-badge">{{ cartStore.itemCount }}</span>
+          </router-link>
           <span class="role-badge">{{ authStore.roleLabel }}</span>
           <span class="user-name">{{ authStore.user?.name }} 님</span>
           <button v-if="authStore.canAccessAdmin" class="admin-link" @click="openAdminPortal">관리자포털</button>
@@ -37,7 +41,7 @@
           :key="sub.path"
           :to="sub.path"
           class="sub-nav-item"
-          :class="{ active: $route.path === sub.path }"
+          :class="{ active: isSubActive(sub.path) }"
         >
           {{ sub.label }}
         </router-link>
@@ -66,12 +70,14 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { CloudOutlined, LogoutOutlined } from '@ant-design/icons-vue'
+import { CloudOutlined, LogoutOutlined, ShoppingCartOutlined } from '@ant-design/icons-vue'
 import { useAuthStore } from '../stores/auth'
+import { useCartStore } from '../stores/cart'
 
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const cartStore = useCartStore()
 
 // 브라우저 탭/창 닫힐 때 로그아웃 처리
 // sessionStorage는 탭 닫으면 자동 삭제됨 → 다음 접속 시 세션 키가 없으면 로그아웃 상태
@@ -87,15 +93,20 @@ onMounted(() => {
 })
 
 const allMenus = [
-  { label: '대시보드', path: '/portal', roles: ['ADMIN', 'MANAGER', 'INTERNAL', 'EXTERNAL'] },
-  { label: '데이터카탈로그', path: '/portal/catalog', roles: ['ADMIN', 'MANAGER', 'INTERNAL', 'EXTERNAL'] },
-  { label: '데이터유통', path: '/portal/distribution', roles: ['ADMIN', 'MANAGER', 'INTERNAL', 'EXTERNAL'] },
-  { label: 'AI검색', path: '/portal/ai-search', roles: ['ADMIN', 'MANAGER', 'INTERNAL'] },
-  { label: '마이페이지', path: '/portal/mypage', roles: ['ADMIN', 'MANAGER', 'INTERNAL', 'EXTERNAL'] },
+  { label: '대시보드', path: '/portal', excludeGroups: [] as string[] },
+  { label: '데이터카탈로그', path: '/portal/catalog', excludeGroups: [] as string[] },
+  { label: '실시간모니터링', path: '/portal/monitoring', excludeGroups: [] as string[] },
+  { label: '데이터유통', path: '/portal/distribution', excludeGroups: [] as string[] },
+  { label: 'AI검색', path: '/portal/ai-search', excludeGroups: ['EXTERNAL'] },
+  { label: '마이페이지', path: '/portal/mypage', excludeGroups: [] as string[] },
 ]
 
 const mainMenus = computed(() =>
-  allMenus.filter(m => authStore.userRole && m.roles.includes(authStore.userRole))
+  allMenus.filter(m => {
+    const group = authStore.roleGroup
+    if (!group) return false
+    return !m.excludeGroups.includes(group)
+  })
 )
 
 function handleLogout() {
@@ -122,11 +133,18 @@ const subMenuMap: Record<string, { label: string; path: string }[]> = {
     { label: '시각화 갤러리 설정', path: '/portal/gallery' },
     { label: '위젯 관리', path: '/portal/widget-manage' },
     { label: '갤러리 콘텐츠 관리', path: '/portal/gallery-content' },
-    { label: '실시간 계측DB', path: '/portal/realtime-measure' },
+  ],
+  '/portal/monitoring': [
+    { label: 'RWIS', path: '/portal/monitoring' },
+    { label: 'HDAPS', path: '/portal/monitoring/hdaps' },
+    { label: 'GIOS', path: '/portal/monitoring/gios' },
+    { label: 'Smart Metering', path: '/portal/monitoring/smart-metering' },
+    { label: '공간정보(GIS)', path: '/portal/monitoring/gis' },
   ],
   '/portal/catalog': [
-    { label: '카탈로그 탐색', path: '/portal/catalog' },
-    { label: '데이터 검색', path: '/portal/catalog/search' },
+    { label: '데이터 카탈로그', path: '/portal/catalog' },
+    { label: '데이터 리니지', path: '/portal/catalog/lineage' },
+    { label: '데이터 장바구니', path: '/portal/cart' },
   ],
   '/portal/distribution': [
     { label: '유통 데이터 목록', path: '/portal/distribution' },
@@ -136,17 +154,20 @@ const subMenuMap: Record<string, { label: string; path: string }[]> = {
   '/portal/mypage': [
     { label: '내 프로필', path: '/portal/mypage' },
     { label: '내 데이터', path: '/portal/mypage/data' },
-    { label: '알림 설정', path: '/portal/mypage/notifications' },
+    { label: '알림 수신', path: '/portal/mypage/notifications' },
   ],
 }
 
 // 대시보드 하위 경로 목록 (서브메뉴 유지용)
-const dashboardPaths = ['/portal', '/portal/widget-settings', '/portal/widget-manage', '/portal/gallery', '/portal/gallery-content', '/portal/visualization', '/portal/visualization/gallery', '/portal/realtime-measure', '/portal/realtime-measure/office', '/portal/realtime-measure/site']
+const dashboardPaths = ['/portal', '/portal/widget-settings', '/portal/widget-manage', '/portal/gallery', '/portal/gallery-content', '/portal/visualization', '/portal/visualization/gallery']
+
+// 장바구니는 카탈로그 서브메뉴에 속함
+const catalogPaths = ['/portal/cart']
 
 const currentSubMenus = computed(() => {
   const p = route.path.replace(/\/$/, '')
-  // 대시보드 하위 경로인 경우 항상 /portal 서브메뉴 표시
   if (dashboardPaths.includes(p)) return subMenuMap['/portal'] || []
+  if (catalogPaths.includes(p)) return subMenuMap['/portal/catalog'] || []
   const parts = p.split('/')
   const basePath = '/portal/' + (parts[2] || '')
   return subMenuMap[basePath] || []
@@ -154,7 +175,20 @@ const currentSubMenus = computed(() => {
 
 function isActive(path: string): boolean {
   if (path === '/portal') return route.path === '/portal'
+  // 장바구니는 카탈로그 메뉴 활성화
+  if (path === '/portal/catalog' && route.path === '/portal/cart') return true
   return route.path.startsWith(path)
+}
+
+function isSubActive(subPath: string): boolean {
+  const p = route.path
+  // 정확 일치
+  if (p === subPath) return true
+  // 서브메뉴의 하위 경로도 해당 서브메뉴 하이라이트 (예: /portal/monitoring → /portal/monitoring/rwis/office)
+  // 단, 다른 서브메뉴 경로와 겹치지 않도록 현재 서브메뉴 중 가장 긴 prefix 매칭
+  const siblings = currentSubMenus.value.map(s => s.path).sort((a, b) => b.length - a.length)
+  const match = siblings.find(s => p.startsWith(s + '/') || p === s)
+  return match === subPath
 }
 </script>
 
@@ -243,6 +277,16 @@ function isActive(path: string): boolean {
   .user-name {
     font-size: $font-size-sm;
     color: $text-secondary;
+  }
+
+  .cart-link {
+    position: relative; color: $text-secondary; font-size: 18px; text-decoration: none;
+    &:hover { color: $primary; }
+    .cart-badge {
+      position: absolute; top: -6px; right: -8px; background: #DC3545; color: #fff;
+      font-size: 10px; font-weight: 700; min-width: 16px; height: 16px; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center; line-height: 1;
+    }
   }
 
   .role-badge {

@@ -2,31 +2,35 @@
   <div class="measure-page">
     <!-- Breadcrumb -->
     <nav class="breadcrumb">
-      <router-link to="/portal">대시보드</router-link>
-      <span class="separator">/</span>
-      <span class="current">실시간 계측DB</span>
+      <router-link to="/portal/monitoring">실시간모니터링</router-link>
+      <span class="separator">&gt;</span>
+      <span class="current">RWIS</span>
     </nav>
 
     <!-- Header -->
     <div class="page-header">
       <div class="header-left">
-        <h2>GRE 데이터 통계</h2>
-        <span class="badge-realtime">
-          <ThunderboltOutlined />
-          실시간
-        </span>
+        <div class="title-wrap">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <h2>RWIS 모니터링*</h2>
+            <span class="badge-realtime"><ThunderboltOutlined /> 실시간</span>
+          </div>
+          <p class="page-desc">실시간 수자원정보시스템(RWIS) 수위·유량·수질 계측 현황</p>
+        </div>
       </div>
       <div class="header-right">
         <CalendarOutlined />
-        <span>{{ dateRange }}</span>
+        <input type="date" v-model="dateFrom" class="date-input" />
+        <span class="date-sep">~</span>
+        <input type="date" v-model="dateTo" class="date-input" />
       </div>
     </div>
 
     <!-- Tab bar -->
     <div class="measure-tabs">
-      <router-link to="/portal/realtime-measure" class="active">전체</router-link>
-      <router-link to="/portal/realtime-measure/office">사무소 대시보드</router-link>
-      <router-link to="/portal/realtime-measure/site">사업장 대시보드</router-link>
+      <router-link to="/portal/monitoring" class="active">전체</router-link>
+      <router-link to="/portal/monitoring/rwis/office">사무소 대시보드</router-link>
+      <router-link to="/portal/monitoring/rwis/site">사업장 대시보드</router-link>
     </div>
 
     <!-- KPI Cards -->
@@ -211,7 +215,10 @@ ModuleRegistry.registerModules([AllCommunityModule])
 
 const router = useRouter()
 
-const dateRange = ref('2026-03-01 ~ 2026-03-27')
+const today = new Date()
+const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000)
+const dateTo = ref(today.toISOString().substring(0, 10))
+const dateFrom = ref(weekAgo.toISOString().substring(0, 10))
 
 // Region distribution data
 const regionDistribution = ref([
@@ -306,11 +313,11 @@ const gridData = ref([
 const defaultColDef = { sortable: true, resizable: true, flex: 1, minWidth: 80 }
 
 function navigateToOffice(region: string) {
-  router.push({ path: '/portal/realtime-measure/office', query: { region } })
+  router.push({ path: '/portal/monitoring/rwis/office', query: { region } })
 }
 
 const columnDefs: ColDef[] = [
-  { headerName: 'No', valueGetter: 'node.rowIndex + 1', width: 50, maxWidth: 50, flex: 0 },
+  { headerName: 'No', valueGetter: 'node.rowIndex + 1', width: 55, resizable: false },
   {
     headerName: '유역/지사',
     field: 'region',
@@ -330,8 +337,8 @@ const columnDefs: ColDef[] = [
       return link
     },
   },
-  { headerName: '사무소', field: 'offices', width: 80, maxWidth: 80, flex: 0, type: 'numericColumn' },
-  { headerName: '사업장', field: 'sites', width: 80, maxWidth: 80, flex: 0, type: 'numericColumn' },
+  { headerName: '사무소', field: 'offices', width: 100, type: 'numericColumn' },
+  { headerName: '사업장', field: 'sites', width: 100, type: 'numericColumn' },
   {
     headerName: '태그 수',
     field: 'tags',
@@ -399,7 +406,7 @@ const columnDefs: ColDef[] = [
       return span
     },
   },
-  { headerName: '데이터 건수', field: 'dataCount', width: 110, maxWidth: 110, flex: 0 },
+  { headerName: '데이터 건수', field: 'dataCount', width: 130 },
 ]
 </script>
 
@@ -444,6 +451,16 @@ const columnDefs: ColDef[] = [
     gap: 6px;
     font-size: $font-size-sm;
     color: $text-secondary;
+
+    .date-input {
+      padding: 4px 8px;
+      border: 1px solid #d9d9d9;
+      border-radius: 4px;
+      font-size: 12px;
+      color: #333;
+      &:focus { outline: none; border-color: $primary; }
+    }
+    .date-sep { color: #999; font-size: 12px; }
   }
 }
 

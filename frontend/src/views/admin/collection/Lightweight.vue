@@ -3,7 +3,7 @@
     <div class="page-header"><h2>경량 수집</h2><p class="page-desc">경량 에이전트 기반 소규모 데이터 수집을 관리합니다.</p></div>
     <div class="table-section">
       <div class="table-header"><span class="table-count">경량 수집 에이전트 <strong>{{ rows.length }}</strong>건</span><div class="table-actions"><button class="btn btn-primary btn-sm" @click="showRegister = true"><PlusOutlined /> 에이전트 등록</button><button class="btn-excel" title="엑셀 다운로드" @click="exportGridToExcel(cols, rows, '경량_에이전트')"><FileExcelOutlined /></button></div></div>
-      <div class="ag-grid-wrapper"><AgGridVue class="ag-theme-alpine" :rowData="rows" :columnDefs="cols" :defaultColDef="defCol" :pagination="true" :paginationPageSize="10" domLayout="autoHeight" @row-clicked="onRowClick" /></div>
+      <div class="ag-grid-wrapper"><AgGridVue class="ag-theme-alpine" :rowData="rows" :columnDefs="cols" :defaultColDef="defCol" :pagination="true" :paginationPageSize="10" domLayout="autoHeight" :tooltipShowDelay="0" @row-clicked="onRowClick" /></div>
     </div>
 
     <!-- 에이전트 상세 팝업 -->
@@ -37,7 +37,7 @@
         <div class="modal-form-group"><label>설명</label><textarea rows="2" placeholder="에이전트 설명"></textarea></div>
       </div>
       <template #footer>
-        <button class="btn btn-primary" @click="showRegister = false"><SaveOutlined /> 등록</button>
+        <button class="btn btn-primary" @click="handleRegister"><SaveOutlined /> 등록</button>
         <button class="btn btn-outline" @click="showRegister = false">취소</button>
       </template>
     </AdminModal>
@@ -45,31 +45,34 @@
 </template>
 <script setup lang="ts">
 import { exportGridToExcel } from '../../../utils/exportExcel'
+import { defaultColDef as baseDefaultColDef, withHeaderTooltips } from '../../../utils/gridHelper'
 import { ref, onMounted } from 'vue'
 import { AgGridVue } from 'ag-grid-vue3'
 import { AllCommunityModule, ModuleRegistry, type ColDef } from 'ag-grid-community'
 import { PlusOutlined, FileExcelOutlined, EditOutlined, SaveOutlined } from '@ant-design/icons-vue'
+import { message } from '../../../utils/message'
 import AdminModal from '../../../components/AdminModal.vue'
 import { adminCollectionApi } from '../../../api/admin.api'
 ModuleRegistry.registerModules([AllCommunityModule])
 
 const showDetail = ref(false), showRegister = ref(false)
 const detailData = ref<any>({})
-const defCol = { sortable: true, resizable: true, flex: 1, minWidth: 80 }
-const cols: ColDef[] = [
-  { headerName: 'No', valueGetter: 'node.rowIndex + 1', width: 50, maxWidth: 50, flex: 0 },
-  { headerName: '에이전트명', field: 'name', flex: 2 },
-  { headerName: '대상 시스템', field: 'target', flex: 1 },
-  { headerName: '수집 방식', field: 'method', width: 100 },
-  { headerName: '주기', field: 'schedule', width: 80 },
-  { headerName: '최근 실행', field: 'lastRun', width: 120 },
-  { headerName: '상태', field: 'status', width: 70 },
-]
+const defCol = { ...baseDefaultColDef }
+const cols: ColDef[] = withHeaderTooltips([
+  { headerName: 'No', valueGetter: 'node.rowIndex + 1', flex: 0.4, minWidth: 50 },
+  { headerName: '에이전트명', field: 'name', flex: 1.5, minWidth: 150 },
+  { headerName: '대상 시스템', field: 'target', flex: 1, minWidth: 100 },
+  { headerName: '수집 방식', field: 'method', flex: 0.7, minWidth: 80 },
+  { headerName: '주기', field: 'schedule', flex: 0.5, minWidth: 60 },
+  { headerName: '최근 실행', field: 'lastRun', flex: 0.8, minWidth: 100 },
+  { headerName: '상태', field: 'status', flex: 0.5, minWidth: 60 },
+])
 const rows = ref([
   { name: '현장 수질측정 Agent', target: '현장 태블릿', method: 'HTTP POST', schedule: '수동', lastRun: '2026-03-25 09:15', status: '활성' },
   { name: '엑셀 업로드 Agent', target: '관리자 PC', method: 'File Upload', schedule: '수동', lastRun: '2026-03-24 15:30', status: '활성' },
   { name: '외부 CSV 수집', target: 'FTP Server', method: 'SFTP', schedule: '일 1회', lastRun: '2026-03-25 06:00', status: '활성' },
 ])
+
 
 onMounted(async () => {
   try {
@@ -95,6 +98,7 @@ function onRowClick(event: any) {
   detailData.value = event.data
   showDetail.value = true
 }
+function handleRegister() { message.success("등록되었습니다."); showRegister.value = false }
 </script>
 <style lang="scss" scoped>@use '../admin-common.scss';
 :deep(.ag-row) { cursor: pointer; }

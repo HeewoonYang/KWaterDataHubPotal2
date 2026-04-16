@@ -3,9 +3,9 @@
     <!-- Breadcrumb -->
     <nav class="breadcrumb">
       <router-link to="/portal">대시보드</router-link>
-      <span class="separator">/</span>
-      <router-link to="/portal/realtime-measure">실시간 계측DB</router-link>
-      <span class="separator">/</span>
+      <span class="separator">&gt;</span>
+      <router-link to="/portal/monitoring">실시간모니터링</router-link>
+      <span class="separator">&gt;</span>
       <span class="current">사무소 대시보드</span>
     </nav>
 
@@ -16,9 +16,9 @@
 
     <!-- Tab bar -->
     <div class="measure-tabs">
-      <router-link to="/portal/realtime-measure">전체</router-link>
-      <router-link to="/portal/realtime-measure/office" class="active">사무소 대시보드</router-link>
-      <router-link to="/portal/realtime-measure/site">사업장 대시보드</router-link>
+      <router-link to="/portal/monitoring">전체</router-link>
+      <router-link to="/portal/monitoring/rwis/office" class="active">사무소 대시보드</router-link>
+      <router-link to="/portal/monitoring/rwis/site">사업장 대시보드</router-link>
     </div>
 
     <!-- Filter bar -->
@@ -217,11 +217,11 @@ const gridData = ref([
 const defaultColDef = { sortable: true, resizable: true, flex: 1, minWidth: 80 }
 
 function navigateToSite(siteName: string) {
-  router.push({ path: '/portal/realtime-measure/site', query: { region: selectedRegion.value, office: selectedOffice.value, site: siteName } })
+  router.push({ path: '/portal/monitoring/rwis/site', query: { region: selectedRegion.value, office: selectedOffice.value, site: siteName } })
 }
 
 const columnDefs: ColDef[] = [
-  { headerName: 'No', valueGetter: 'node.rowIndex + 1', width: 50, maxWidth: 50, flex: 0 },
+  { headerName: 'No', valueGetter: 'node.rowIndex + 1', width: 55, resizable: false },
   {
     headerName: '사업장명',
     field: 'name',
@@ -244,18 +244,14 @@ const columnDefs: ColDef[] = [
   {
     headerName: '태그 수',
     field: 'tags',
-    width: 100,
-    maxWidth: 100,
-    flex: 0,
+    width: 110,
     type: 'numericColumn',
     valueFormatter: (params: any) => params.value?.toLocaleString(),
   },
   {
     headerName: '수집률',
     field: 'collectRate',
-    width: 90,
-    maxWidth: 90,
-    flex: 0,
+    width: 105,
     cellRenderer: (params: any) => {
       const span = document.createElement('span')
       span.textContent = `${params.value}%`
@@ -273,18 +269,14 @@ const columnDefs: ColDef[] = [
   {
     headerName: '수집태그',
     field: 'collectTags',
-    width: 100,
-    maxWidth: 100,
-    flex: 0,
+    width: 115,
     type: 'numericColumn',
     valueFormatter: (params: any) => params.value?.toLocaleString(),
   },
   {
     headerName: '미수집',
     field: 'uncollect',
-    width: 90,
-    maxWidth: 90,
-    flex: 0,
+    width: 105,
     type: 'numericColumn',
     cellRenderer: (params: any) => {
       const span = document.createElement('span')
@@ -296,13 +288,11 @@ const columnDefs: ColDef[] = [
       return span
     },
   },
-  { headerName: '데이터건수', field: 'dataCount', width: 110, maxWidth: 110, flex: 0 },
+  { headerName: '데이터건수', field: 'dataCount', width: 130 },
   {
     headerName: '상태',
     field: 'status',
-    width: 80,
-    maxWidth: 80,
-    flex: 0,
+    width: 100,
     cellRenderer: (params: any) => {
       const badge = document.createElement('span')
       badge.textContent = params.value

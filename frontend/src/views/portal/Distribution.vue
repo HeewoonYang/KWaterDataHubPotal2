@@ -1,8 +1,8 @@
 <template>
   <div class="dist-page">
     <nav class="breadcrumb">
-      <router-link to="/portal">대시보드</router-link>
-      <span class="separator">/</span>
+      <router-link to="/portal/distribution">데이터유통</router-link>
+      <span class="separator">&gt;</span>
       <span class="current">유통 데이터 목록</span>
     </nav>
 
@@ -101,15 +101,15 @@ const defaultColDef = { sortable: true, resizable: true, flex: 1, minWidth: 80 }
 
 const columnDefs: ColDef[] = [
   { headerCheckboxSelection: true, checkboxSelection: true, width: 40, maxWidth: 40, flex: 0, sortable: false, resizable: false },
-  { headerName: 'No', valueGetter: 'node.rowIndex + 1', width: 50, maxWidth: 50, flex: 0 },
+  { headerName: 'No', valueGetter: 'node.rowIndex + 1', width: 55, resizable: false },
   { headerName: '데이터셋명', field: 'name', flex: 2, minWidth: 200 },
-  { headerName: '분류', field: 'category', width: 80, maxWidth: 80, flex: 0 },
-  { headerName: '등급', field: 'gradeLabel', width: 70, maxWidth: 70, flex: 0 },
-  { headerName: '포맷', field: 'format', width: 70, maxWidth: 70, flex: 0 },
-  { headerName: '건수', field: 'rows', width: 90, maxWidth: 90, flex: 0 },
-  { headerName: '제공기관', field: 'provider', flex: 1, minWidth: 100 },
-  { headerName: '갱신일', field: 'updated', flex: 1, minWidth: 110 },
-  { headerName: '상태', field: 'status', width: 70, maxWidth: 70, flex: 0 },
+  { headerName: '분류', field: 'category', width: 95 },
+  { headerName: '등급', field: 'gradeLabel', width: 85 },
+  { headerName: '포맷', field: 'format', width: 90 },
+  { headerName: '건수', field: 'rows', width: 110 },
+  { headerName: '제공기관', field: 'provider', flex: 1, minWidth: 110 },
+  { headerName: '갱신일', field: 'updated', flex: 1, minWidth: 120 },
+  { headerName: '상태', field: 'status', width: 85 },
 ]
 
 // Fallback mock data

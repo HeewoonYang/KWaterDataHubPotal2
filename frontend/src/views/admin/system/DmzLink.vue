@@ -6,7 +6,7 @@
     </div>
     <div class="table-section">
       <div class="table-header"><span class="table-count">연계 채널 <strong>{{ rows.length }}</strong>건</span><div class="table-actions"><button class="btn-excel" title="엑셀 다운로드" @click="exportGridToExcel(cols, rows, 'DMZ_연계')"><FileExcelOutlined /></button></div></div>
-      <div class="ag-grid-wrapper"><AgGridVue class="ag-theme-alpine" :rowData="rows" :columnDefs="cols" :defaultColDef="defCol" :pagination="true" :paginationPageSize="10" domLayout="autoHeight" @row-clicked="onRowClick" /></div>
+      <div class="ag-grid-wrapper"><AgGridVue :tooltipShowDelay="0" class="ag-theme-alpine" :rowData="rows" :columnDefs="cols" :defaultColDef="defCol" :pagination="true" :paginationPageSize="10" domLayout="autoHeight" @row-clicked="onRowClick" /></div>
     </div>
 
     <!-- 채널 상세 팝업 -->
@@ -30,9 +30,10 @@
 </template>
 <script setup lang="ts">
 import { exportGridToExcel } from '../../../utils/exportExcel'
+import { defaultColDef as baseDefaultColDef, withHeaderTooltips } from '../../../utils/gridHelper'
 import { ref, onMounted, type Component } from 'vue'
 import { AgGridVue } from 'ag-grid-vue3'
-import { AllCommunityModule, ModuleRegistry, type ColDef } from 'ag-grid-community'
+import { AllCommunityModule, ModuleRegistry } from 'ag-grid-community'
 import { SafetyOutlined, SwapOutlined, CheckCircleOutlined, ApiOutlined, FileExcelOutlined, EditOutlined } from '@ant-design/icons-vue'
 import AdminModal from '../../../components/AdminModal.vue'
 import { adminSystemApi } from '../../../api/admin.api'
@@ -40,21 +41,21 @@ ModuleRegistry.registerModules([AllCommunityModule])
 
 const showDetail = ref(false)
 const detailData = ref<any>({})
-const defCol = { sortable: true, resizable: true, flex: 1, minWidth: 80 }
+const defCol = { ...baseDefaultColDef }
 const stats: { icon: Component; label: string; value: string; color: string }[] = [
   { icon: SwapOutlined, label: '활성 채널', value: '5', color: '#0066CC' },
   { icon: SafetyOutlined, label: '보안 상태', value: '정상', color: '#28A745' },
   { icon: ApiOutlined, label: '일 전송량', value: '1.2 TB', color: '#9b59b6' },
   { icon: CheckCircleOutlined, label: '성공률', value: '99.8%', color: '#FFC107' },
 ]
-const cols: ColDef[] = [
-  { headerName: 'No', valueGetter: 'node.rowIndex + 1', width: 50, maxWidth: 50, flex: 0 },
+const cols = withHeaderTooltips([
+  { headerName: 'No', valueGetter: 'node.rowIndex + 1', flex: 0.4, minWidth: 45 },
   { headerName: '채널명', field: 'name', flex: 2 },
   { headerName: '방향', field: 'direction', width: 100 },
   { headerName: '프로토콜', field: 'protocol', width: 90 },
   { headerName: '보안 등급', field: 'security', width: 90 },
   { headerName: '상태', field: 'status', width: 70 },
-]
+])
 const rows = ref([
   { name: 'FA망 → 데이터허브 (실시간)', direction: 'FA → IT', protocol: 'SFTP/TLS', security: '1등급', status: '활성' },
   { name: '데이터허브 → 공공데이터포털', direction: 'IT → 외부', protocol: 'REST/HTTPS', security: '2등급', status: '활성' },

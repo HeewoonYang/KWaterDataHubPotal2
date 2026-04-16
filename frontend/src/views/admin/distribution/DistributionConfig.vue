@@ -16,7 +16,7 @@
         <div class="table-actions"><button class="btn btn-success"><PlusOutlined /> 유통 DB 등록</button><button class="btn-excel" title="엑셀 다운로드" @click="exportGridToExcel(cols, rowData, '유통DB_설정')"><FileExcelOutlined /></button></div>
       </div>
       <div class="ag-grid-wrapper">
-        <AgGridVue class="ag-theme-alpine" :rowData="rowData" :columnDefs="cols" :defaultColDef="{ sortable: true, resizable: true, flex: 1, minWidth: 80 }" :pagination="true" :paginationPageSize="10" domLayout="autoHeight" @row-clicked="onRowClick" />
+        <AgGridVue :tooltipShowDelay="0" class="ag-theme-alpine" :rowData="rowData" :columnDefs="cols" :defaultColDef="defCol" :pagination="true" :paginationPageSize="10" domLayout="autoHeight" @row-clicked="onRowClick" />
       </div>
     </div>
 
@@ -43,9 +43,10 @@
 </template>
 <script setup lang="ts">
 import { exportGridToExcel } from '../../../utils/exportExcel'
+import { defaultColDef as baseDefaultColDef, withHeaderTooltips } from '../../../utils/gridHelper'
 import { ref, onMounted, type Component } from 'vue'
 import { AgGridVue } from 'ag-grid-vue3'
-import { AllCommunityModule, ModuleRegistry, type ColDef } from 'ag-grid-community'
+import { AllCommunityModule, ModuleRegistry } from 'ag-grid-community'
 import { SwapOutlined, ApiOutlined, LinkOutlined, DisconnectOutlined, PlusOutlined, FileExcelOutlined, EditOutlined } from '@ant-design/icons-vue'
 import AdminModal from '../../../components/AdminModal.vue'
 import { adminDistributionApi } from '../../../api/admin.api'
@@ -59,16 +60,17 @@ const stats: { icon: Component; label: string; value: string; color: string }[] 
   { icon: LinkOutlined, label: '연결 정상', value: '13', color: '#9b59b6' },
   { icon: DisconnectOutlined, label: '연결 오류', value: '2', color: '#DC3545' },
 ]
-const cols: ColDef[] = [
-  { headerName: 'No', valueGetter: 'node.rowIndex + 1', width: 50, maxWidth: 50, flex: 0 },
+const defCol = { ...baseDefaultColDef }
+const cols = withHeaderTooltips([
+  { headerName: 'No', valueGetter: 'node.rowIndex + 1', flex: 0.4, minWidth: 45 },
   { headerName: '유통 채널명', field: 'name', flex: 2, minWidth: 170 },
-  { headerName: '유형', field: 'type', width: 90, maxWidth: 90, flex: 0 },
+  { headerName: '유형', field: 'type', flex: 0.7, minWidth: 80 },
   { headerName: '대상 시스템', field: 'target', flex: 1, minWidth: 120 },
-  { headerName: '포맷', field: 'format', width: 70, maxWidth: 70, flex: 0 },
-  { headerName: '유통 건수', field: 'count', width: 90, maxWidth: 90, flex: 0 },
+  { headerName: '포맷', field: 'format', flex: 0.5, minWidth: 65 },
+  { headerName: '유통 건수', field: 'count', flex: 0.7, minWidth: 80 },
   { headerName: '최근 유통', field: 'lastSync', flex: 1, minWidth: 130 },
-  { headerName: '상태', field: 'status', width: 70, maxWidth: 70, flex: 0 },
-]
+  { headerName: '상태', field: 'status', flex: 0.5, minWidth: 65 },
+])
 const rowData = ref([
   { name: '수자원 공개 API', type: 'REST API', target: '공공데이터포털', format: 'JSON', count: '1.2억건', lastSync: '2026-03-25 13:00', status: '정상' },
   { name: '수도 관리 연계', type: 'DB Link', target: '수도관리시스템', format: 'DB', count: '320만건', lastSync: '2026-03-25 12:30', status: '정상' },

@@ -205,7 +205,57 @@ const sizeClass = computed(() => `modal-${props.size || 'lg'}`)
 .modal-form {
   display: flex;
   flex-direction: column;
-  gap: $spacing-lg;
+  gap: 0;
+
+  .form-row {
+    display: flex;
+    align-items: center;
+    border-bottom: 1px solid #e8e8e8;
+
+    &:first-child { border-top: 1px solid #e8e8e8; }
+
+    label {
+      min-width: 110px;
+      width: 110px;
+      padding: 10px 14px;
+      font-size: $font-size-sm;
+      font-weight: 600;
+      color: $text-secondary;
+      background: #f5f7fa;
+      border-right: 1px solid #e8e8e8;
+      border-left: 1px solid #e8e8e8;
+      flex-shrink: 0;
+      align-self: stretch;
+      display: flex;
+      align-items: center;
+    }
+
+    input, select {
+      flex: 1;
+      padding: 9px 12px;
+      border: none;
+      border-right: 1px solid #e8e8e8;
+      font-size: $font-size-sm;
+      font-family: inherit;
+      outline: none;
+      background: $white;
+      &:focus { background: #f0f7ff; }
+    }
+
+    textarea {
+      flex: 1;
+      padding: 9px 12px;
+      border: none;
+      border-right: 1px solid #e8e8e8;
+      font-size: $font-size-sm;
+      font-family: inherit;
+      outline: none;
+      resize: vertical;
+      min-height: 60px;
+      background: $white;
+      &:focus { background: #f0f7ff; }
+    }
+  }
 }
 
 .modal-form-group {

@@ -39,7 +39,7 @@
         </div>
       </div>
       <div class="ag-grid-wrapper">
-        <AgGridVue class="ag-theme-alpine" :rowData="tableData" :columnDefs="columnDefs" :defaultColDef="defaultColDef" :pagination="true" :paginationPageSize="10" :rowSelection="'multiple'" :animateRows="true" domLayout="autoHeight" @row-clicked="onRowClick" />
+        <AgGridVue :tooltipShowDelay="0" class="ag-theme-alpine" :rowData="tableData" :columnDefs="columnDefs" :defaultColDef="defaultColDef" :pagination="true" :paginationPageSize="10" :rowSelection="'multiple'" :animateRows="true" domLayout="autoHeight" @row-clicked="onRowClick" />
       </div>
     </div>
 
@@ -136,6 +136,7 @@
 
 <script setup lang="ts">
 import { exportGridToExcel } from '../../utils/exportExcel'
+import { defaultColDef as baseDefaultColDef, withHeaderTooltips } from '../../utils/gridHelper'
 import { ref, onMounted, type Component } from 'vue'
 import { AgGridVue } from 'ag-grid-vue3'
 import { AllCommunityModule, ModuleRegistry, type ColDef } from 'ag-grid-community'
@@ -198,21 +199,21 @@ onMounted(async () => {
   }
 })
 
-const defaultColDef = { sortable: true, resizable: true, flex: 1, minWidth: 80 }
-const columnDefs: ColDef[] = [
-  { headerCheckboxSelection: true, checkboxSelection: true, width: 40, maxWidth: 40, flex: 0, sortable: false, resizable: false },
-  { headerName: 'No', valueGetter: 'node.rowIndex + 1', width: 50, maxWidth: 50, flex: 0 },
+const defaultColDef = { ...baseDefaultColDef }
+const columnDefs: ColDef[] = withHeaderTooltips([
+  { headerCheckboxSelection: true, checkboxSelection: true, flex: 0, width: 40, minWidth: 40, sortable: false, resizable: false },
+  { headerName: 'No', valueGetter: 'node.rowIndex + 1', flex: 0.4, minWidth: 45 },
   { headerName: '시스템명', field: 'name', flex: 2, minWidth: 180 },
-  { headerName: '유형', field: 'typeLabel', width: 70, maxWidth: 70, flex: 0, cellClass: (p: any) => `type-cell type-${p.data.type}` },
+  { headerName: '유형', field: 'typeLabel', flex: 0.5, minWidth: 65, cellClass: (p: any) => `type-cell type-${p.data.type}` },
   { headerName: '호스트', field: 'host', flex: 1.5, minWidth: 130, cellStyle: { fontFamily: "'JetBrains Mono', 'D2Coding', monospace", fontSize: '12px', color: '#666' } },
-  { headerName: '상태', field: 'statusLabel', width: 65, maxWidth: 65, flex: 0, cellClass: (p: any) => `status-cell status-${p.data.status}` },
-  { headerName: 'CPU', field: 'cpu', width: 65, maxWidth: 65, flex: 0, valueFormatter: (p: any) => `${p.value}%` },
-  { headerName: '메모리', field: 'memory', width: 70, maxWidth: 70, flex: 0, valueFormatter: (p: any) => `${p.value}%` },
-  { headerName: '디스크', field: 'disk', width: 70, maxWidth: 70, flex: 0, valueFormatter: (p: any) => `${p.value}%` },
+  { headerName: '상태', field: 'statusLabel', flex: 0.5, minWidth: 60, cellClass: (p: any) => `status-cell status-${p.data.status}` },
+  { headerName: 'CPU', field: 'cpu', flex: 0.5, minWidth: 60, valueFormatter: (p: any) => `${p.value}%` },
+  { headerName: '메모리', field: 'memory', flex: 0.5, minWidth: 65, valueFormatter: (p: any) => `${p.value}%` },
+  { headerName: '디스크', field: 'disk', flex: 0.5, minWidth: 65, valueFormatter: (p: any) => `${p.value}%` },
   { headerName: '최근 점검', field: 'lastCheck', flex: 1.2, minWidth: 150 },
-  { headerName: '상세', width: 60, maxWidth: 60, flex: 0, sortable: false,
+  { headerName: '상세', flex: 0.5, minWidth: 55, sortable: false,
     cellRenderer: () => '<button style="background:#0066CC;color:#fff;border:none;border-radius:4px;padding:2px 10px;font-size:11px;cursor:pointer;">상세</button>' },
-]
+])
 
 function onRowClick(event: any) {
   if (event.column?.colId === '10') return // 상세 버튼 클릭은 별도

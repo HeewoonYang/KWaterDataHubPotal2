@@ -3,7 +3,9 @@
     <!-- 브레드크럼 -->
     <nav class="breadcrumb">
       <router-link to="/portal">대시보드</router-link>
-      <span class="separator">/</span>
+      <span class="separator">&gt;</span>
+      <router-link to="/portal/gallery-content">갤러리 콘텐츠 관리</router-link>
+      <span class="separator">&gt;</span>
       <span class="current">D&amp;D 시각화</span>
     </nav>
 
@@ -265,6 +267,7 @@ import {
   CloseOutlined,
 } from '@ant-design/icons-vue'
 import { visualizationApi } from '../../api/portal.api'
+import { message } from '../../utils/message'
 
 const router = useRouter()
 const route = useRoute()
@@ -588,7 +591,7 @@ async function saveChart() {
     }
     router.push({ path: '/portal/gallery-content', query: { saved: '1' } })
   } catch (e) {
-    alert('저장에 실패했습니다.')
+    message.error('저장에 실패했습니다.')
   }
 }
 
@@ -742,6 +745,15 @@ onMounted(async () => {
   const editId = route.query.edit as string
   if (editId) {
     await loadChartForEdit(editId)
+  }
+
+  // 데이터셋 자동 선택: ?dataset_id=xxx 일 때
+  const queryDatasetId = route.query.dataset_id as string
+  if (queryDatasetId && !editId) {
+    const match = dataSources.value.find(ds => String(ds.id) === queryDatasetId)
+    if (match) {
+      await selectDataSource(match)
+    }
   }
 })
 

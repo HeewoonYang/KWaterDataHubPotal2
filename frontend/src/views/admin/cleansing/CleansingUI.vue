@@ -16,7 +16,7 @@
         <div class="table-actions"><button class="btn btn-success"><PlusOutlined /> 정제 규칙 추가</button><button class="btn-excel" title="엑셀 다운로드" @click="exportGridToExcel(cols, rowData, '정제_규칙')"><FileExcelOutlined /></button></div>
       </div>
       <div class="ag-grid-wrapper">
-        <AgGridVue class="ag-theme-alpine" :rowData="rowData" :columnDefs="cols" :defaultColDef="{ sortable: true, resizable: true, flex: 1, minWidth: 80 }" :pagination="true" :paginationPageSize="10" :rowSelection="'multiple'" domLayout="autoHeight" @row-clicked="onRowClick" />
+        <AgGridVue class="ag-theme-alpine" :rowData="rowData" :columnDefs="cols" :defaultColDef="defaultColDef" :pagination="true" :paginationPageSize="10" :rowSelection="'multiple'" domLayout="autoHeight" :tooltipShowDelay="0" @row-clicked="onRowClick" />
       </div>
     </div>
 
@@ -43,6 +43,7 @@
 </template>
 <script setup lang="ts">
 import { exportGridToExcel } from '../../../utils/exportExcel'
+import { defaultColDef as baseDefaultColDef, withHeaderTooltips } from '../../../utils/gridHelper'
 import { ref, onMounted, type Component } from 'vue'
 import { AgGridVue } from 'ag-grid-vue3'
 import { AllCommunityModule, ModuleRegistry, type ColDef } from 'ag-grid-community'
@@ -59,17 +60,18 @@ const stats: { icon: Component; label: string; value: string; color: string }[] 
   { icon: SyncOutlined, label: '정제중', value: '8', color: '#FFC107' },
   { icon: ExclamationCircleOutlined, label: '오류', value: '5', color: '#DC3545' },
 ]
-const cols: ColDef[] = [
-  { headerCheckboxSelection: true, checkboxSelection: true, width: 40, maxWidth: 40, flex: 0, sortable: false, resizable: false },
-  { headerName: 'No', valueGetter: 'node.rowIndex + 1', width: 50, maxWidth: 50, flex: 0 },
+const defaultColDef = { ...baseDefaultColDef }
+const cols: ColDef[] = withHeaderTooltips([
+  { headerCheckboxSelection: true, checkboxSelection: true, width: 40, minWidth: 36, flex: 0, sortable: false, resizable: false },
+  { headerName: 'No', valueGetter: 'node.rowIndex + 1', flex: 0.4, minWidth: 45 },
   { headerName: '규칙명', field: 'name', flex: 2, minWidth: 180 },
   { headerName: '대상 테이블', field: 'table', flex: 1, minWidth: 130 },
-  { headerName: '정제 유형', field: 'type', width: 90, maxWidth: 90, flex: 0 },
-  { headerName: '적용 건수', field: 'count', width: 90, maxWidth: 90, flex: 0 },
-  { headerName: '성공률', field: 'rate', width: 75, maxWidth: 75, flex: 0 },
+  { headerName: '정제 유형', field: 'type', flex: 0.7, minWidth: 80 },
+  { headerName: '적용 건수', field: 'count', flex: 0.7, minWidth: 80 },
+  { headerName: '성공률', field: 'rate', flex: 0.5, minWidth: 65 },
   { headerName: '최근 실행', field: 'lastRun', flex: 1, minWidth: 130 },
-  { headerName: '상태', field: 'status', width: 70, maxWidth: 70, flex: 0 },
-]
+  { headerName: '상태', field: 'status', flex: 0.5, minWidth: 60 },
+])
 const rowData = ref([
   { name: '수위 데이터 이상값 제거', table: 'TB_DAM_LEVEL', type: '이상값', count: '12,500건', rate: '99.2%', lastRun: '2026-03-25 12:00', status: '완료' },
   { name: '수질 NULL 값 보정', table: 'TB_WATER_QUALITY', type: 'NULL 처리', count: '8,200건', rate: '97.8%', lastRun: '2026-03-25 11:30', status: '완료' },

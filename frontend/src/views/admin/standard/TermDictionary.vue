@@ -27,7 +27,7 @@
         </div>
       </div>
       <div class="ag-grid-wrapper">
-        <AgGridVue class="ag-theme-alpine" :rowData="rowData" :columnDefs="cols" :defaultColDef="{ sortable: true, resizable: true, flex: 1, minWidth: 80 }" :pagination="true" :paginationPageSize="50" domLayout="autoHeight" @row-clicked="onRowClick" />
+        <AgGridVue :tooltipShowDelay="0" class="ag-theme-alpine" :rowData="rowData" :columnDefs="cols" :defaultColDef="defCol" :pagination="true" :paginationPageSize="50" domLayout="autoHeight" @row-clicked="onRowClick" />
       </div>
       <div class="pagination-bar">
         <button class="btn btn-secondary" :disabled="page <= 1" @click="page--; loadData()">이전</button>
@@ -56,7 +56,8 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, type Component } from 'vue'
 import { AgGridVue } from 'ag-grid-vue3'
-import { AllCommunityModule, ModuleRegistry, type ColDef } from 'ag-grid-community'
+import { defaultColDef as baseDefaultColDef, withHeaderTooltips } from '../../../utils/gridHelper'
+import { AllCommunityModule, ModuleRegistry } from 'ag-grid-community'
 import { ProfileOutlined, DatabaseOutlined, FontSizeOutlined, NumberOutlined, SearchOutlined, PlusOutlined, FileExcelOutlined } from '@ant-design/icons-vue'
 import AdminModal from '@/components/AdminModal.vue'
 import { termApi, importExportApi } from '@/api/standard.api'
@@ -84,16 +85,17 @@ const stats = ref<{ icon: Component; label: string; value: string; color: string
   { icon: NumberOutlined, label: 'NUMERIC', value: '0', color: '#FFC107' },
 ])
 
-const cols: ColDef[] = [
-  { headerName: 'No', valueGetter: 'node.rowIndex + 1', width: 50, maxWidth: 60, flex: 0 },
+const defCol = { ...baseDefaultColDef }
+const cols = withHeaderTooltips([
+  { headerName: 'No', valueGetter: 'node.rowIndex + 1', flex: 0.4, minWidth: 45 },
   { headerName: '용어명', field: 'term_name', flex: 2, minWidth: 180 },
   { headerName: '영문명', field: 'english_name', flex: 1.5, minWidth: 120 },
   { headerName: '도메인코드', field: 'domain_code', flex: 1, minWidth: 100 },
-  { headerName: '도메인그룹', field: 'domain_group', width: 100, maxWidth: 110, flex: 0 },
-  { headerName: '데이터유형', field: 'data_type', width: 90, maxWidth: 100, flex: 0 },
-  { headerName: '길이', field: 'length', width: 60, maxWidth: 60, flex: 0 },
-  { headerName: '소수점', field: 'decimal_places', width: 65, maxWidth: 65, flex: 0 },
-]
+  { headerName: '도메인그룹', field: 'domain_group', flex: 0.7, minWidth: 90 },
+  { headerName: '데이터유형', field: 'data_type', flex: 0.7, minWidth: 80 },
+  { headerName: '길이', field: 'length', flex: 0.5, minWidth: 55 },
+  { headerName: '소수점', field: 'decimal_places', flex: 0.5, minWidth: 60 },
+])
 
 async function loadData() {
   try {

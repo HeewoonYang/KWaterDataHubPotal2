@@ -1,8 +1,8 @@
 <template>
   <div class="mypage">
     <nav class="breadcrumb">
-      <router-link to="/portal">대시보드</router-link>
-      <span class="separator">/</span>
+      <router-link to="/portal/mypage">마이페이지</router-link>
+      <span class="separator">&gt;</span>
       <span class="current">내 프로필</span>
     </nav>
 
@@ -50,7 +50,7 @@
 
         <!-- 즐겨찾기 -->
         <div v-if="activeTab === 'favorites'" class="tab-content">
-          <div v-for="item in favorites" :key="item.name" class="list-item">
+          <div v-for="item in favorites" :key="item.name" class="list-item clickable" @click="goToDetail(item)">
             <StarFilled class="star-icon" />
             <span class="item-name">{{ item.name }}</span>
             <span class="item-type">{{ item.type }}</span>
@@ -60,7 +60,7 @@
 
         <!-- 최근 조회 -->
         <div v-if="activeTab === 'recent'" class="tab-content">
-          <div v-for="item in recentViews" :key="item.name" class="list-item">
+          <div v-for="item in recentViews" :key="item.name" class="list-item clickable" @click="goToDetail(item)">
             <EyeOutlined class="view-icon" />
             <span class="item-name">{{ item.name }}</span>
             <span class="item-type">{{ item.type }}</span>
@@ -70,7 +70,7 @@
 
         <!-- 다운로드 이력 -->
         <div v-if="activeTab === 'downloads'" class="tab-content">
-          <div v-for="item in downloads" :key="item.name" class="list-item">
+          <div v-for="item in downloads" :key="item.name" class="list-item clickable" @click="goToDownload()">
             <DownloadOutlined class="dl-icon" />
             <span class="item-name">{{ item.name }}</span>
             <span class="item-format">{{ item.format }}</span>
@@ -84,6 +84,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, type Component } from 'vue'
+import { useRouter } from 'vue-router'
 import {
   UserOutlined,
   MailOutlined,
@@ -101,6 +102,7 @@ import {
 import { useAuthStore } from '../../stores/auth'
 import { userApi } from '../../api/portal.api'
 
+const router = useRouter()
 const authStore = useAuthStore()
 const activeTab = ref('favorites')
 
@@ -148,9 +150,15 @@ onMounted(async () => {
       userApi.recentViews({ page: 1, page_size: 10 }),
       userApi.downloadHistory({ page: 1, page_size: 10 }),
     ])
-    if (favRes.data?.items) favorites.value = favRes.data.items
-    if (recentRes.data?.items) recentViews.value = recentRes.data.items
-    if (dlRes.data?.items) downloads.value = dlRes.data.items
+    if (favRes.data?.items?.length) favorites.value = favRes.data.items.map((i: any) => ({
+      _resourceId: i.resource_id, name: i.resource_name ?? i.name, type: i.resource_type ?? i.type, date: (i.bookmarked_at ?? i.date ?? '').slice(0, 10),
+    }))
+    if (recentRes.data?.items?.length) recentViews.value = recentRes.data.items.map((i: any) => ({
+      _resourceId: i.resource_id, name: i.resource_name ?? i.name, type: i.resource_type ?? i.type, date: (i.viewed_at ?? i.date ?? '').slice(0, 16).replace('T', ' '),
+    }))
+    if (dlRes.data?.items?.length) downloads.value = dlRes.data.items.map((i: any) => ({
+      name: i.dataset_name ?? i.name, format: i.download_format ?? i.format, date: (i.downloaded_at ?? i.date ?? '').slice(0, 10),
+    }))
 
     // Update activity counts
     activities.value = [
@@ -163,6 +171,16 @@ onMounted(async () => {
     console.error('마이페이지 데이터 조회 실패:', e)
   }
 })
+
+function goToDetail(item: any) {
+  if (item._resourceId) {
+    router.push({ path: '/portal/catalog', query: { detail: item._resourceId } })
+  }
+}
+
+function goToDownload() {
+  router.push('/portal/distribution/download')
+}
 </script>
 
 <style lang="scss" scoped>
@@ -210,6 +228,8 @@ onMounted(async () => {
 .tab-content { padding: $spacing-md; }
 .list-item {
   display: flex; align-items: center; gap: $spacing-md; padding: $spacing-md; border-bottom: 1px solid $bg-light;
+  transition: background 0.15s;
+  &.clickable { cursor: pointer; &:hover { background: #f0f7ff; } }
   &:last-child { border-bottom: none; }
   .star-icon { color: #FFC107; }
   .view-icon { color: $primary; }

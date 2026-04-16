@@ -6,7 +6,7 @@
     </div>
     <div class="table-section">
       <div class="table-header"><span class="table-count">월별 유통 현황</span><div class="table-actions"><button class="btn-excel" title="엑셀 다운로드" @click="exportGridToExcel(cols, rows, '유통_통계')"><FileExcelOutlined /></button></div></div>
-      <div class="ag-grid-wrapper"><AgGridVue class="ag-theme-alpine" :rowData="rows" :columnDefs="cols" :defaultColDef="defCol" :pagination="true" :paginationPageSize="10" domLayout="autoHeight" @row-clicked="onRowClick" /></div>
+      <div class="ag-grid-wrapper"><AgGridVue :tooltipShowDelay="0" class="ag-theme-alpine" :rowData="rows" :columnDefs="cols" :defaultColDef="defCol" :pagination="true" :paginationPageSize="10" domLayout="autoHeight" @row-clicked="onRowClick" /></div>
     </div>
 
     <!-- 월별 유통 상세 팝업 -->
@@ -32,9 +32,10 @@
 </template>
 <script setup lang="ts">
 import { exportGridToExcel } from '../../../utils/exportExcel'
+import { defaultColDef as baseDefaultColDef, withHeaderTooltips } from '../../../utils/gridHelper'
 import { ref, onMounted, type Component } from 'vue'
 import { AgGridVue } from 'ag-grid-vue3'
-import { AllCommunityModule, ModuleRegistry, type ColDef } from 'ag-grid-community'
+import { AllCommunityModule, ModuleRegistry } from 'ag-grid-community'
 import { BarChartOutlined, DownloadOutlined, ApiOutlined, UserOutlined, FileExcelOutlined } from '@ant-design/icons-vue'
 import AdminModal from '../../../components/AdminModal.vue'
 import { adminDistributionApi } from '../../../api/admin.api'
@@ -42,14 +43,14 @@ ModuleRegistry.registerModules([AllCommunityModule])
 
 const showDetail = ref(false)
 const detailData = ref<any>({})
-const defCol = { sortable: true, resizable: true, flex: 1, minWidth: 80 }
+const defCol = { ...baseDefaultColDef }
 const stats: { icon: Component; label: string; value: string; color: string }[] = [
   { icon: BarChartOutlined, label: '월 유통 건수', value: '38,500', color: '#0066CC' },
   { icon: DownloadOutlined, label: '월 다운로드', value: '2,340', color: '#28A745' },
   { icon: ApiOutlined, label: '월 API 호출', value: '1.45M', color: '#9b59b6' },
   { icon: UserOutlined, label: '월 활성 사용자', value: '156', color: '#FFC107' },
 ]
-const cols: ColDef[] = [
+const cols = withHeaderTooltips([
   { headerName: '월', field: 'month', width: 90 },
   { headerName: '유통 건수', field: 'total', width: 100 },
   { headerName: '다운로드', field: 'downloads', width: 90 },
@@ -58,7 +59,7 @@ const cols: ColDef[] = [
   { headerName: '승인', field: 'approved', width: 70 },
   { headerName: '반려', field: 'rejected', width: 70 },
   { headerName: '활성 사용자', field: 'users', width: 90 },
-]
+])
 const rows = ref([
   { month: '2026-03', total: '38,500', downloads: '2,340', apiCalls: '1,450K', requests: 45, approved: 42, rejected: 3, users: 156 },
   { month: '2026-02', total: '35,200', downloads: '2,100', apiCalls: '1,320K', requests: 38, approved: 36, rejected: 2, users: 142 },

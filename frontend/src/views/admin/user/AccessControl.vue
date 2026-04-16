@@ -3,7 +3,7 @@
     <div class="page-header"><h2>데이터 접근제어</h2><p class="page-desc">데이터 등급별 접근 정책 및 사용자 권한을 관리합니다.</p></div>
     <div class="table-section">
       <div class="table-header"><span class="table-count">접근 정책 <strong>{{ rows.length }}</strong>건</span><div class="table-actions"><button class="btn btn-primary btn-sm" @click="showRegister = true"><PlusOutlined /> 정책 추가</button><button class="btn-excel" title="엑셀 다운로드" @click="exportGridToExcel(cols, rows, '접근_정책')"><FileExcelOutlined /></button></div></div>
-      <div class="ag-grid-wrapper"><AgGridVue class="ag-theme-alpine" :rowData="rows" :columnDefs="cols" :defaultColDef="defCol" :pagination="true" :paginationPageSize="10" domLayout="autoHeight" @row-clicked="onRowClick" /></div>
+      <div class="ag-grid-wrapper"><AgGridVue class="ag-theme-alpine" :rowData="rows" :columnDefs="cols" :defaultColDef="defCol" :tooltipShowDelay="0" :pagination="true" :paginationPageSize="10" domLayout="autoHeight" @row-clicked="onRowClick" /></div>
     </div>
 
     <!-- 정책 상세 팝업 -->
@@ -36,7 +36,7 @@
         <div class="modal-form-group"><label>설명</label><textarea rows="2" placeholder="정책 설명"></textarea></div>
       </div>
       <template #footer>
-        <button class="btn btn-primary" @click="showRegister = false"><SaveOutlined /> 추가</button>
+        <button class="btn btn-primary" @click="handleRegister"><SaveOutlined /> 추가</button>
         <button class="btn btn-outline" @click="showRegister = false">취소</button>
       </template>
     </AdminModal>
@@ -44,10 +44,13 @@
 </template>
 <script setup lang="ts">
 import { exportGridToExcel } from '../../../utils/exportExcel'
+import { defaultColDef as baseDefaultColDef, withHeaderTooltips } from '../../../utils/gridHelper'
+
 import { ref, onMounted } from 'vue'
 import { AgGridVue } from 'ag-grid-vue3'
 import { AllCommunityModule, ModuleRegistry, type ColDef } from 'ag-grid-community'
 import { PlusOutlined, FileExcelOutlined, EditOutlined, SaveOutlined } from '@ant-design/icons-vue'
+import { message } from '../../../utils/message'
 import AdminModal from '../../../components/AdminModal.vue'
 import { adminUserApi } from '../../../api/admin.api'
 ModuleRegistry.registerModules([AllCommunityModule])
@@ -55,21 +58,22 @@ ModuleRegistry.registerModules([AllCommunityModule])
 const showDetail = ref(false), showRegister = ref(false)
 const detailData = ref<any>({})
 
-const defCol = { sortable: true, resizable: true, flex: 1, minWidth: 80 }
-const cols: ColDef[] = [
-  { headerName: 'No', valueGetter: 'node.rowIndex + 1', width: 50, maxWidth: 50, flex: 0 },
+const defCol = { ...baseDefaultColDef }
+const cols: ColDef[] = withHeaderTooltips([
+  { headerName: 'No', valueGetter: 'node.rowIndex + 1', flex: 0.4, minWidth: 50 },
   { headerName: '정책명', field: 'name', flex: 2 },
-  { headerName: '데이터 등급', field: 'grade', width: 100 },
+  { headerName: '데이터 등급', field: 'grade', flex: 0.8, minWidth: 100 },
   { headerName: '대상 역할', field: 'roles', flex: 1 },
-  { headerName: '접근 유형', field: 'accessType', width: 110 },
-  { headerName: '상태', field: 'status', width: 70 },
-]
+  { headerName: '접근 유형', field: 'accessType', flex: 0.8, minWidth: 110 },
+  { headerName: '상태', field: 'status', flex: 0.5, minWidth: 70 },
+])
 const rows = ref([
   { name: 'L1 비공개 데이터 접근', grade: 'L1 (비공개)', roles: 'ADMIN', accessType: '읽기/쓰기', status: '활성' },
   { name: 'L2 내부공유 데이터', grade: 'L2 (내부)', roles: 'ADMIN, MANAGER, INTERNAL', accessType: '읽기', status: '활성' },
   { name: 'L3 공개 데이터', grade: 'L3 (공개)', roles: '전체', accessType: '읽기', status: '활성' },
   { name: '개인정보 마스킹', grade: 'L1', roles: 'INTERNAL, EXTERNAL', accessType: '비식별화', status: '활성' },
 ])
+
 
 onMounted(async () => {
   try {
@@ -94,6 +98,7 @@ function onRowClick(event: any) {
   detailData.value = event.data
   showDetail.value = true
 }
+function handleRegister() { message.success("등록되었습니다."); showRegister.value = false }
 </script>
 <style lang="scss" scoped>
 @use '../admin-common.scss';

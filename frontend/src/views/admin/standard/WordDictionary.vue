@@ -27,7 +27,7 @@
         </div>
       </div>
       <div class="ag-grid-wrapper">
-        <AgGridVue class="ag-theme-alpine" :rowData="rowData" :columnDefs="cols" :defaultColDef="{ sortable: true, resizable: true, flex: 1, minWidth: 80 }" :pagination="true" :paginationPageSize="20" domLayout="autoHeight" @row-clicked="onRowClick" />
+        <AgGridVue :tooltipShowDelay="0" class="ag-theme-alpine" :rowData="rowData" :columnDefs="cols" :defaultColDef="defCol" :pagination="true" :paginationPageSize="20" domLayout="autoHeight" @row-clicked="onRowClick" />
       </div>
     </div>
     <AdminModal :visible="showModal" :title="editId ? '단어 수정' : '단어 등록'" @close="closeModal">
@@ -49,7 +49,8 @@
 <script setup lang="ts">
 import { ref, onMounted, type Component } from 'vue'
 import { AgGridVue } from 'ag-grid-vue3'
-import { AllCommunityModule, ModuleRegistry, type ColDef } from 'ag-grid-community'
+import { defaultColDef as baseDefaultColDef, withHeaderTooltips } from '../../../utils/gridHelper'
+import { AllCommunityModule, ModuleRegistry } from 'ag-grid-community'
 import { BookOutlined, CheckCircleOutlined, StopOutlined, FileTextOutlined, SearchOutlined, PlusOutlined, FileExcelOutlined } from '@ant-design/icons-vue'
 import AdminModal from '@/components/AdminModal.vue'
 import { wordApi, importExportApi } from '@/api/standard.api'
@@ -73,15 +74,16 @@ const stats = ref<{ icon: Component; label: string; value: string; color: string
   { icon: FileTextOutlined, label: '속성분류', value: '6종', color: '#FFC107' },
 ])
 
-const cols: ColDef[] = [
-  { headerName: 'No', valueGetter: 'node.rowIndex + 1', width: 50, maxWidth: 60, flex: 0 },
+const defCol = { ...baseDefaultColDef }
+const cols = withHeaderTooltips([
+  { headerName: 'No', valueGetter: 'node.rowIndex + 1', flex: 0.4, minWidth: 45 },
   { headerName: '단어명', field: 'word_name', flex: 2, minWidth: 150 },
   { headerName: '영문명', field: 'english_name', flex: 1.5, minWidth: 120 },
   { headerName: '영문의미', field: 'english_meaning', flex: 2, minWidth: 150 },
-  { headerName: '속성분류어', field: 'attr_classifier', width: 100, maxWidth: 110, flex: 0 },
+  { headerName: '속성분류어', field: 'attr_classifier', flex: 0.7, minWidth: 90 },
   { headerName: '동의어', field: 'synonyms', flex: 1, minWidth: 100 },
-  { headerName: '상태', field: 'status', width: 80, maxWidth: 80, flex: 0 },
-]
+  { headerName: '상태', field: 'status', flex: 0.6, minWidth: 70 },
+])
 
 async function loadData() {
   try {

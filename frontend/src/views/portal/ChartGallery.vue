@@ -2,7 +2,7 @@
   <div class="gallery-page">
     <nav class="breadcrumb">
       <router-link to="/portal">대시보드</router-link>
-      <span class="separator">/</span>
+      <span class="separator">&gt;</span>
       <span class="current">차트 갤러리</span>
     </nav>
 

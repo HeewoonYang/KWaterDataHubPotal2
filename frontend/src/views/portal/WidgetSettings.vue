@@ -3,7 +3,7 @@
     <!-- 브레드크럼 -->
     <nav class="breadcrumb">
       <router-link to="/portal">대시보드</router-link>
-      <span class="separator">/</span>
+      <span class="separator">&gt;</span>
       <span class="current">위젯 설정</span>
     </nav>
 

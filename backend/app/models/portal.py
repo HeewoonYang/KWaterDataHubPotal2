@@ -196,6 +196,30 @@ class PortalNotificationSubscription(Base):
     )
 
 
+class PortalCartItem(Base):
+    """데이터장바구니항목"""
+    __tablename__ = "portal_cart_item"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=new_uuid, comment="장바구니항목ID")
+    user_id = Column(UUID(as_uuid=True), ForeignKey("user_account.id", ondelete="CASCADE"), nullable=False, comment="사용자ID")
+    dataset_id = Column(UUID(as_uuid=True), ForeignKey("catalog_dataset.id", ondelete="CASCADE"), nullable=False, comment="데이터셋ID")
+    dataset_name = Column(String(300), comment="데이터셋명 (스냅샷)")
+    data_format = Column(String(50), comment="데이터형식")
+    grade = Column(Integer, default=3, comment="보안등급 (1=기밀/2=내부/3=공개)")
+    date_from = Column(String(20), comment="요청기간시작")
+    date_to = Column(String(20), comment="요청기간종료")
+    max_rows = Column(String(50), comment="최대건수")
+    request_format = Column(String(20), default="CSV", comment="요청포맷 (CSV/JSON/API)")
+    memo = Column(Text, comment="메모")
+    added_at = Column(DateTime, default=datetime.now, comment="추가일시")
+
+    __table_args__ = (
+        Index("uq_cart_user_dataset", "user_id", "dataset_id", unique=True),
+        Index("ix_cart_user", "user_id"),
+        {"comment": "데이터장바구니항목"},
+    )
+
+
 class PortalSitemapMenu(AuditMixin, Base):
     """사이트맵메뉴"""
     __tablename__ = "portal_sitemap_menu"

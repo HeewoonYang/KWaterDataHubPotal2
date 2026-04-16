@@ -54,7 +54,7 @@
 
           <!-- SSO 안내 (내부) -->
           <div v-if="loginType === 'internal'" class="sso-section">
-            <button class="btn-sso" @click="showIdPwForm = !showIdPwForm">
+            <button class="btn-sso" @click="handleSsoLogin">
               <LoginOutlined />
               오아시스 SSO 로그인
             </button>
@@ -62,6 +62,15 @@
             <div class="divider">
               <span>또는 테스트 계정</span>
             </div>
+          </div>
+
+          <!-- OAuth 로그인 (외부) -->
+          <div v-if="loginType === 'external' && oauthProviders.length > 0" class="sso-section">
+            <button v-for="p in oauthProviders" :key="p.provider_name" class="btn-sso btn-oauth" @click="handleOAuthLogin(p.provider_name)">
+              <LoginOutlined />
+              {{ p.display_name }} 로그인
+            </button>
+            <div class="divider"><span>또는 ID/PW 로그인</span></div>
           </div>
 
           <!-- ID/PW 폼 -->
@@ -94,20 +103,38 @@
             </div>
 
             <button type="submit" class="btn-login">로그인</button>
+
+            <!-- 외부 사용자 전용: 아이디/비밀번호 찾기 -->
+            <div v-if="loginType === 'external'" class="recovery-links">
+              <button type="button" class="link-btn" @click="showFindId = true">
+                <UserOutlined /> 아이디 찾기
+              </button>
+              <span class="divider-vert"></span>
+              <button type="button" class="link-btn" @click="showResetPw = true">
+                <LockOutlined /> 비밀번호 찾기
+              </button>
+            </div>
           </form>
+
+          <!-- 아이디/비밀번호 찾기 모달 -->
+          <FindIdModal :visible="showFindId" @close="showFindId = false" />
+          <ResetPasswordModal :visible="showResetPw" @close="showResetPw = false" />
 
           <!-- 테스트 계정 안내 -->
           <div class="test-accounts">
             <p class="test-title"><InfoCircleOutlined /> 테스트 계정</p>
-            <div class="account-list">
-              <div
-                v-for="acc in testAccounts"
-                :key="acc.id"
-                class="account-item"
-                @click="fillTestAccount(acc.id, acc.pw)"
-              >
-                <span class="acc-role" :class="acc.roleClass">{{ acc.roleLabel }}</span>
-                <span class="acc-info">{{ acc.id }} / {{ acc.pw }}</span>
+            <div v-for="group in testAccountGroups" :key="group.label" class="account-group">
+              <div class="group-label">{{ group.label }}</div>
+              <div class="account-list">
+                <div
+                  v-for="acc in group.accounts"
+                  :key="acc.id"
+                  class="account-item"
+                  @click="fillTestAccount(acc.id, acc.pw)"
+                >
+                  <span class="acc-role" :class="acc.roleClass">{{ acc.roleLabel }}</span>
+                  <span class="acc-info">{{ acc.id }} / {{ acc.pw }}</span>
+                </div>
               </div>
             </div>
           </div>
@@ -118,9 +145,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../../stores/auth'
+import apiClient from '../../api/client'
+import FindIdModal from './FindIdModal.vue'
+import ResetPasswordModal from './ResetPasswordModal.vue'
 import {
   CloudOutlined,
   DatabaseOutlined,
@@ -139,16 +169,60 @@ const router = useRouter()
 const authStore = useAuthStore()
 
 const loginType = ref<'internal' | 'external'>('internal')
-const showIdPwForm = ref(false)
 const username = ref('')
 const password = ref('')
 const errorMsg = ref('')
+const oauthProviders = ref<any[]>([])
+const showFindId = ref(false)
+const showResetPw = ref(false)
 
-const testAccounts = [
-  { id: 'admin', pw: 'admin', roleLabel: 'ADMIN', roleClass: 'admin' },
-  { id: 'manager', pw: 'manager', roleLabel: 'MANAGER', roleClass: 'manager' },
-  { id: 'user', pw: 'user', roleLabel: 'INTERNAL', roleClass: 'internal' },
-  { id: 'guest', pw: 'guest', roleLabel: 'EXTERNAL', roleClass: 'external' },
+// SSO 제공자 로드
+onMounted(async () => {
+  try {
+    const r = await apiClient.get('/sso/providers')
+    const providers = r.data?.data || []
+    oauthProviders.value = providers.filter((p: any) => p.provider_type === 'OAUTH')
+  } catch { /* SSO 미설정 시 무시 */ }
+})
+
+function handleSsoLogin() {
+  const returnUrl = encodeURIComponent(window.location.origin + '/portal/sso-callback')
+  window.location.href = `/api/v1/sso/saml/login?return_url=${returnUrl}`
+}
+
+function handleOAuthLogin(providerName: string) {
+  window.location.href = `/api/v1/sso/oauth/${providerName}/login`
+}
+
+const testAccountGroups = [
+  {
+    label: '관리자',
+    accounts: [
+      { id: 'admin', pw: 'admin', roleLabel: '수퍼관리자', roleClass: 'admin' },
+      { id: 'operator', pw: 'operator', roleLabel: '운영자', roleClass: 'admin' },
+    ],
+  },
+  {
+    label: '데이터 관리',
+    accounts: [
+      { id: 'manager', pw: 'manager', roleLabel: '스튜어드', roleClass: 'manager' },
+      { id: 'engineer', pw: 'engineer', roleLabel: '엔지니어', roleClass: 'manager' },
+    ],
+  },
+  {
+    label: '내부 사용자',
+    accounts: [
+      { id: 'executive', pw: 'executive', roleLabel: '임원', roleClass: 'internal' },
+      { id: 'kwmgr', pw: 'kwmgr', roleLabel: '부서관리자', roleClass: 'internal' },
+      { id: 'user', pw: 'user', roleLabel: '일반직원', roleClass: 'internal' },
+    ],
+  },
+  {
+    label: '외부 사용자',
+    accounts: [
+      { id: 'guest', pw: 'guest', roleLabel: '외부사용자', roleClass: 'external' },
+    ],
+  },
 ]
 
 function fillTestAccount(id: string, pw: string) {
@@ -408,6 +482,38 @@ async function handleLogin() {
   &:hover { background: darken($primary, 8%); }
 }
 
+// ===== Recovery Links (외부사용자 아이디/PW 찾기) =====
+.recovery-links {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: $spacing-md;
+  margin-top: $spacing-md;
+}
+
+.link-btn {
+  background: transparent;
+  border: none;
+  color: $text-secondary;
+  font-size: $font-size-xs;
+  cursor: pointer;
+  padding: 4px 2px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: color $transition-fast;
+
+  &:hover { color: $primary; }
+
+  :deep(.anticon) { font-size: 12px; }
+}
+
+.divider-vert {
+  width: 1px;
+  height: 12px;
+  background: $border-color;
+}
+
 // ===== Test Accounts =====
 .test-accounts {
   margin-top: $spacing-xl;
@@ -424,10 +530,26 @@ async function handleLogin() {
   }
 }
 
+.account-group {
+  margin-bottom: $spacing-sm;
+
+  &:last-child { margin-bottom: 0; }
+}
+
+.group-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: $text-muted;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 2px;
+  padding-left: 8px;
+}
+
 .account-list {
   display: flex;
   flex-direction: column;
-  gap: $spacing-xs;
+  gap: 2px;
 }
 
 .account-item {

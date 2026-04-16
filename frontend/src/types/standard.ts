@@ -93,7 +93,7 @@ export interface StdRequest {
 // ── 분류체계 ──
 export interface Classification {
   id: number
-  parent_id?: number
+  parent_id?: number | null
   level: number
   name: string
   code: string
@@ -101,6 +101,14 @@ export interface Classification {
   dataset_count: number
   sort_order: number
   status: string
+  std_word_id?: number | null
+  std_term_id?: number | null
+  std_domain_id?: number | null
+  std_code_id?: number | null
+  std_word_name?: string | null
+  std_term_name?: string | null
+  std_domain_name?: string | null
+  std_code_name?: string | null
   created_at?: string
   updated_at?: string
   children?: Classification[]

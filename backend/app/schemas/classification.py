@@ -11,14 +11,24 @@ class ClassificationCreate(BaseModel):
     code: str
     description: str | None = None
     sort_order: int = 0
+    std_word_id: int | None = None
+    std_term_id: int | None = None
+    std_domain_id: int | None = None
+    std_code_id: int | None = None
 
 
 class ClassificationUpdate(BaseModel):
+    parent_id: int | None = None
+    level: int | None = None
     name: str | None = None
     code: str | None = None
     description: str | None = None
     sort_order: int | None = None
     status: str | None = None
+    std_word_id: int | None = None
+    std_term_id: int | None = None
+    std_domain_id: int | None = None
+    std_code_id: int | None = None
 
 
 class ClassificationResponse(BaseModel):
@@ -31,6 +41,15 @@ class ClassificationResponse(BaseModel):
     dataset_count: int
     sort_order: int
     status: str
+    std_word_id: int | None = None
+    std_term_id: int | None = None
+    std_domain_id: int | None = None
+    std_code_id: int | None = None
+    # 연동 표준사전 표시명 (join 조회)
+    std_word_name: str | None = None
+    std_term_name: str | None = None
+    std_domain_name: str | None = None
+    std_code_name: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

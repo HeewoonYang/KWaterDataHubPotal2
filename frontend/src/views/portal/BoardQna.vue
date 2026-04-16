@@ -1,8 +1,8 @@
 <template>
   <div class="board-page">
     <nav class="breadcrumb">
-      <router-link to="/portal">대시보드</router-link>
-      <span class="separator">/</span>
+      <span>게시판</span>
+      <span class="separator">&gt;</span>
       <span class="current">질의응답</span>
     </nav>
 
@@ -89,6 +89,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { SearchOutlined, EditOutlined, PaperClipOutlined } from '@ant-design/icons-vue'
+import { message } from '../../utils/message'
 import AdminModal from '../../components/AdminModal.vue'
 import { boardApi } from '../../api/portal.api'
 import { useAuthStore } from '../../stores/auth'
@@ -132,23 +133,23 @@ function openWrite() { writeForm.value = { title: '', content: '' }; writeFiles.
 function onFileChange(e: Event) { writeFiles.value = Array.from((e.target as HTMLInputElement).files || []) }
 
 async function submitWrite() {
-  if (!writeForm.value.title.trim()) return alert('제목을 입력하세요.')
+  if (!writeForm.value.title.trim()) return message.warning('제목을 입력하세요.')
   const fd = new FormData()
   fd.append('title', writeForm.value.title)
   fd.append('content', writeForm.value.content)
   writeFiles.value.forEach(f => fd.append('files', f))
-  try { await boardApi.createQna(fd); showWrite.value = false; await fetchList() } catch { alert('등록에 실패했습니다.') }
+  try { await boardApi.createQna(fd); showWrite.value = false; await fetchList() } catch { message.error('등록에 실패했습니다.') }
 }
 
 async function submitAnswer() {
-  if (!answerText.value.trim()) return alert('답변을 입력하세요.')
+  if (!answerText.value.trim()) return message.warning('답변을 입력하세요.')
   const fd = new FormData()
   fd.append('answer', answerText.value)
-  try { await boardApi.answerQna(detailPost.value.id, fd); showDetail.value = false; await fetchList() } catch { alert('답변 등록에 실패했습니다.') }
+  try { await boardApi.answerQna(detailPost.value.id, fd); showDetail.value = false; await fetchList() } catch { message.error('답변 등록에 실패했습니다.') }
 }
 
 async function downloadFile(att: any) {
-  try { const res = await boardApi.downloadAttachment(att.id); const url = URL.createObjectURL(res.data); const a = document.createElement('a'); a.href = url; a.download = att.file_name; a.click(); URL.revokeObjectURL(url) } catch { alert('다운로드 실패') }
+  try { const res = await boardApi.downloadAttachment(att.id); const url = URL.createObjectURL(res.data); const a = document.createElement('a'); a.href = url; a.download = att.file_name; a.click(); URL.revokeObjectURL(url) } catch { message.error('다운로드에 실패했습니다.') }
 }
 
 onMounted(fetchList)

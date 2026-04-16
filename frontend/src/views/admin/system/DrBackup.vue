@@ -6,7 +6,7 @@
     </div>
     <div class="table-section">
       <div class="table-header"><span class="table-count">백업 이력 <strong>{{ rows.length }}</strong>건</span><div class="table-actions"><button class="btn-excel" title="엑셀 다운로드" @click="exportGridToExcel(cols, rows, '백업_이력')"><FileExcelOutlined /></button></div></div>
-      <div class="ag-grid-wrapper"><AgGridVue class="ag-theme-alpine" :rowData="rows" :columnDefs="cols" :defaultColDef="defCol" :pagination="true" :paginationPageSize="10" domLayout="autoHeight" @row-clicked="onRowClick" /></div>
+      <div class="ag-grid-wrapper"><AgGridVue :tooltipShowDelay="0" class="ag-theme-alpine" :rowData="rows" :columnDefs="cols" :defaultColDef="defCol" :pagination="true" :paginationPageSize="10" domLayout="autoHeight" @row-clicked="onRowClick" /></div>
     </div>
 
     <!-- 백업 상세 팝업 -->
@@ -31,9 +31,10 @@
 </template>
 <script setup lang="ts">
 import { exportGridToExcel } from '../../../utils/exportExcel'
+import { defaultColDef as baseDefaultColDef, withHeaderTooltips } from '../../../utils/gridHelper'
 import { ref, onMounted, type Component } from 'vue'
 import { AgGridVue } from 'ag-grid-vue3'
-import { AllCommunityModule, ModuleRegistry, type ColDef } from 'ag-grid-community'
+import { AllCommunityModule, ModuleRegistry } from 'ag-grid-community'
 import { SaveOutlined, SyncOutlined, CheckCircleOutlined, DatabaseOutlined, FileExcelOutlined, EditOutlined } from '@ant-design/icons-vue'
 import AdminModal from '../../../components/AdminModal.vue'
 import { adminSystemApi } from '../../../api/admin.api'
@@ -41,22 +42,22 @@ ModuleRegistry.registerModules([AllCommunityModule])
 
 const showDetail = ref(false)
 const detailData = ref<any>({})
-const defCol = { sortable: true, resizable: true, flex: 1, minWidth: 80 }
+const defCol = { ...baseDefaultColDef }
 const stats: { icon: Component; label: string; value: string; color: string }[] = [
   { icon: SaveOutlined, label: '최근 백업', value: '03-25 02:00', color: '#0066CC' },
   { icon: SyncOutlined, label: 'DR 동기화', value: '정상', color: '#28A745' },
   { icon: CheckCircleOutlined, label: '복구 테스트', value: '03-20', color: '#9b59b6' },
   { icon: DatabaseOutlined, label: '백업 용량', value: '2.3 TB', color: '#FFC107' },
 ]
-const cols: ColDef[] = [
-  { headerName: 'No', valueGetter: 'node.rowIndex + 1', width: 50, maxWidth: 50, flex: 0 },
+const cols = withHeaderTooltips([
+  { headerName: 'No', valueGetter: 'node.rowIndex + 1', flex: 0.4, minWidth: 45 },
   { headerName: '백업 대상', field: 'target', flex: 2 },
   { headerName: '유형', field: 'type', width: 90 },
   { headerName: '시작 시간', field: 'startTime', flex: 1 },
   { headerName: '소요 시간', field: 'duration', width: 90 },
   { headerName: '용량', field: 'size', width: 90 },
   { headerName: '결과', field: 'result', width: 70 },
-]
+])
 const rows = ref([
   { target: 'PostgreSQL Master DB', type: '전체백업', startTime: '2026-03-25 02:00', duration: '45분', size: '850 GB', result: '성공' },
   { target: 'OpenMetadata DB', type: '증분백업', startTime: '2026-03-25 02:00', duration: '12분', size: '120 GB', result: '성공' },

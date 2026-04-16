@@ -1,8 +1,8 @@
 <template>
   <div class="mydata-page">
     <nav class="breadcrumb">
-      <router-link to="/portal">대시보드</router-link>
-      <span class="separator">/</span>
+      <router-link to="/portal/mypage">마이페이지</router-link>
+      <span class="separator">&gt;</span>
       <span class="current">내 데이터</span>
     </nav>
 
@@ -15,7 +15,7 @@
     <div class="table-section">
       <div class="table-header"><span class="table-count">전체 <strong>{{ currentData.length }}</strong>건</span><div class="table-actions"><button class="btn-excel" title="엑셀 다운로드" @click="exportGridToExcel(currentCols, currentData, '나의_데이터')"><FileExcelOutlined /></button></div></div>
       <div class="ag-grid-wrapper">
-        <AgGridVue class="ag-theme-alpine" :rowData="currentData" :columnDefs="currentCols" :defaultColDef="{ sortable: true, resizable: true, flex: 1, minWidth: 80 }" :pagination="true" :paginationPageSize="10" domLayout="autoHeight" />
+        <AgGridVue class="ag-theme-alpine" :rowData="currentData" :columnDefs="currentCols" :defaultColDef="{ sortable: true, resizable: true, suppressSizeToFit: false, minWidth: 60 }" :pagination="true" :paginationPageSize="10" domLayout="autoHeight" @row-clicked="onRowClick" />
       </div>
     </div>
   </div>
@@ -26,28 +26,30 @@ import { ref, computed, onMounted } from 'vue'
 import { AgGridVue } from 'ag-grid-vue3'
 import { AllCommunityModule, ModuleRegistry, type ColDef } from 'ag-grid-community'
 import { StarFilled, EyeOutlined, DownloadOutlined, FileExcelOutlined } from '@ant-design/icons-vue'
+import { useRouter } from 'vue-router'
 import { userApi } from '../../api/portal.api'
+const router = useRouter()
 ModuleRegistry.registerModules([AllCommunityModule])
 const tab = ref('favorites')
 const favCols: ColDef[] = [
-  { headerName: 'No', valueGetter: 'node.rowIndex + 1', width: 50, maxWidth: 50, flex: 0 },
+  { headerName: 'No', valueGetter: 'node.rowIndex + 1', width: 55, resizable: false },
   { headerName: '데이터셋명', field: 'name', flex: 2, minWidth: 200 },
-  { headerName: '유형', field: 'type', width: 70, maxWidth: 70, flex: 0 },
-  { headerName: '등급', field: 'grade', width: 65, maxWidth: 65, flex: 0 },
-  { headerName: '추가일', field: 'date', width: 110, maxWidth: 110, flex: 0 },
+  { headerName: '유형', field: 'type', width: 100 },
+  { headerName: '등급', field: 'grade', width: 85 },
+  { headerName: '추가일', field: 'date', width: 120 },
 ]
 const recentCols: ColDef[] = [
-  { headerName: 'No', valueGetter: 'node.rowIndex + 1', width: 50, maxWidth: 50, flex: 0 },
+  { headerName: 'No', valueGetter: 'node.rowIndex + 1', width: 55, resizable: false },
   { headerName: '데이터셋명', field: 'name', flex: 2, minWidth: 200 },
-  { headerName: '유형', field: 'type', width: 70, maxWidth: 70, flex: 0 },
-  { headerName: '조회 일시', field: 'date', flex: 1, minWidth: 140 },
+  { headerName: '유형', field: 'type', width: 100 },
+  { headerName: '조회 일시', field: 'date', flex: 1, minWidth: 150 },
 ]
 const dlCols: ColDef[] = [
-  { headerName: 'No', valueGetter: 'node.rowIndex + 1', width: 50, maxWidth: 50, flex: 0 },
+  { headerName: 'No', valueGetter: 'node.rowIndex + 1', width: 55, resizable: false },
   { headerName: '데이터셋명', field: 'name', flex: 2, minWidth: 200 },
-  { headerName: '포맷', field: 'format', width: 70, maxWidth: 70, flex: 0 },
-  { headerName: '크기', field: 'size', width: 90, maxWidth: 90, flex: 0 },
-  { headerName: '다운로드일', field: 'date', width: 110, maxWidth: 110, flex: 0 },
+  { headerName: '포맷', field: 'format', width: 90 },
+  { headerName: '크기', field: 'size', width: 100 },
+  { headerName: '다운로드일', field: 'date', width: 130 },
 ]
 
 // Fallback mock data
@@ -81,9 +83,19 @@ onMounted(async () => {
       userApi.recentViews({ page: 1, page_size: 20 }),
       userApi.downloadHistory({ page: 1, page_size: 20 }),
     ])
-    if (favRes.data?.items) favorites.value = favRes.data.items
-    if (recentRes.data?.items) recent.value = recentRes.data.items
-    if (dlRes.data?.items) downloads.value = dlRes.data.items
+    if (favRes.data?.items?.length) favorites.value = favRes.data.items.map((i: any) => ({
+      _resourceId: i.resource_id, _resourceType: i.resource_type,
+      name: i.resource_name ?? i.name, type: i.resource_type ?? i.type, grade: 'L' + (Math.floor(Math.random() * 3) + 1), date: (i.bookmarked_at ?? i.date ?? '').slice(0, 10),
+    }))
+    if (recentRes.data?.items?.length) recent.value = recentRes.data.items.map((i: any) => ({
+      _resourceId: i.resource_id, _resourceType: i.resource_type,
+      name: i.resource_name ?? i.name, type: i.resource_type ?? i.type, date: (i.viewed_at ?? i.date ?? '').slice(0, 16).replace('T', ' '),
+    }))
+    if (dlRes.data?.items?.length) downloads.value = dlRes.data.items.map((i: any) => {
+      const bytes = i.file_size_bytes ?? 0
+      const size = bytes > 1048576 ? (bytes / 1048576).toFixed(1) + ' MB' : (bytes / 1024).toFixed(0) + ' KB'
+      return { _datasetId: i.dataset_id ?? i.id, name: i.dataset_name ?? i.name, format: i.download_format ?? i.format, size: i.size ?? size, date: (i.downloaded_at ?? i.date ?? '').slice(0, 10) }
+    })
   } catch (e) {
     console.error('내 데이터 조회 실패:', e)
   }
@@ -91,6 +103,18 @@ onMounted(async () => {
 
 const currentData = computed<any[]>(() => tab.value === 'favorites' ? favorites.value : tab.value === 'recent' ? recent.value : downloads.value)
 const currentCols = computed(() => tab.value === 'favorites' ? favCols : tab.value === 'recent' ? recentCols : dlCols)
+
+function onRowClick(event: any) {
+  const row = event.data
+  if (tab.value === 'favorites' || tab.value === 'recent') {
+    // 즐겨찾기/최근조회 → 카탈로그 상세로 이동
+    const id = row._resourceId
+    if (id) router.push({ path: '/portal/catalog', query: { detail: id } })
+  } else if (tab.value === 'downloads') {
+    // 다운로드 이력 → 유통 다운로드 페이지로 이동
+    router.push('/portal/distribution/download')
+  }
+}
 </script>
 <style lang="scss" scoped>
 @use '../../styles/variables' as *;

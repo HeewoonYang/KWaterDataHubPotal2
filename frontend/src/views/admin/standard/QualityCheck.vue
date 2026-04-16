@@ -3,7 +3,7 @@
     <div class="page-header"><h2>품질 검증</h2><p class="page-desc">데이터 품질 진단 규칙 및 검증 결과를 관리합니다.</p></div>
     <div class="table-section">
       <div class="table-header"><span class="table-count">품질 진단 결과 <strong>{{ rows.length }}</strong>건</span><div class="table-actions"><button class="btn btn-primary btn-sm"><ThunderboltOutlined /> 진단 실행</button><button class="btn-excel" title="엑셀 다운로드" @click="exportGridToExcel(cols, rows, '품질_진단')"><FileExcelOutlined /></button></div></div>
-      <div class="ag-grid-wrapper"><AgGridVue class="ag-theme-alpine" :rowData="rows" :columnDefs="cols" :defaultColDef="defCol" :pagination="true" :paginationPageSize="10" domLayout="autoHeight" @row-clicked="onRowClick" /></div>
+      <div class="ag-grid-wrapper"><AgGridVue :tooltipShowDelay="0" class="ag-theme-alpine" :rowData="rows" :columnDefs="cols" :defaultColDef="defCol" :pagination="true" :paginationPageSize="10" domLayout="autoHeight" @row-clicked="onRowClick" /></div>
     </div>
 
     <!-- 품질 진단 상세 팝업 -->
@@ -27,9 +27,10 @@
 </template>
 <script setup lang="ts">
 import { exportGridToExcel } from '../../../utils/exportExcel'
+import { defaultColDef as baseDefaultColDef, withHeaderTooltips } from '../../../utils/gridHelper'
 import { ref, onMounted } from 'vue'
 import { AgGridVue } from 'ag-grid-vue3'
-import { AllCommunityModule, ModuleRegistry, type ColDef } from 'ag-grid-community'
+import { AllCommunityModule, ModuleRegistry } from 'ag-grid-community'
 import { ThunderboltOutlined, FileExcelOutlined } from '@ant-design/icons-vue'
 import AdminModal from '../../../components/AdminModal.vue'
 import { qualityApi } from '../../../api/standard.api'
@@ -38,16 +39,16 @@ ModuleRegistry.registerModules([AllCommunityModule])
 const showDetail = ref(false)
 const detailData = ref<any>({})
 
-const defCol = { sortable: true, resizable: true, flex: 1, minWidth: 80 }
-const cols: ColDef[] = [
-  { headerName: 'No', valueGetter: 'node.rowIndex + 1', width: 50, maxWidth: 50, flex: 0 },
+const defCol = { ...baseDefaultColDef }
+const cols = withHeaderTooltips([
+  { headerName: 'No', valueGetter: 'node.rowIndex + 1', flex: 0.4, minWidth: 45 },
   { headerName: '데이터셋', field: 'dataset', flex: 2 },
   { headerName: '진단 항목', field: 'checkType', flex: 1 },
   { headerName: '전체 건수', field: 'total', width: 90 },
   { headerName: '오류 건수', field: 'errors', width: 90 },
   { headerName: '품질 점수', field: 'score', width: 90 },
   { headerName: '진단일', field: 'date', width: 110 },
-]
+])
 const rows = ref([
   { dataset: '댐 수위 관측 데이터', checkType: '완전성', total: '1,200만', errors: '152', score: '99.99%', date: '2026-03-25' },
   { dataset: '댐 수위 관측 데이터', checkType: '유효성', total: '1,200만', errors: '2,340', score: '99.98%', date: '2026-03-25' },

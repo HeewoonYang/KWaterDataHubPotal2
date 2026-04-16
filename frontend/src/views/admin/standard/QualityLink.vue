@@ -6,7 +6,7 @@
     </div>
     <div class="table-section">
       <div class="table-header"><span class="table-count">연동 현황 <strong>{{ rows.length }}</strong>건</span><div class="table-actions"><button class="btn btn-primary btn-sm"><SyncOutlined /> 동기화</button><button class="btn-excel" title="엑셀 다운로드" @click="exportGridToExcel(cols, rows, '품질_연동')"><FileExcelOutlined /></button></div></div>
-      <div class="ag-grid-wrapper"><AgGridVue class="ag-theme-alpine" :rowData="rows" :columnDefs="cols" :defaultColDef="defCol" :pagination="true" :paginationPageSize="10" domLayout="autoHeight" @row-clicked="onRowClick" /></div>
+      <div class="ag-grid-wrapper"><AgGridVue :tooltipShowDelay="0" class="ag-theme-alpine" :rowData="rows" :columnDefs="cols" :defaultColDef="defCol" :pagination="true" :paginationPageSize="10" domLayout="autoHeight" @row-clicked="onRowClick" /></div>
     </div>
 
     <!-- 연동 상세 팝업 -->
@@ -30,9 +30,10 @@
 </template>
 <script setup lang="ts">
 import { exportGridToExcel } from '../../../utils/exportExcel'
+import { defaultColDef as baseDefaultColDef, withHeaderTooltips } from '../../../utils/gridHelper'
 import { ref, onMounted, type Component } from 'vue'
 import { AgGridVue } from 'ag-grid-vue3'
-import { AllCommunityModule, ModuleRegistry, type ColDef } from 'ag-grid-community'
+import { AllCommunityModule, ModuleRegistry } from 'ag-grid-community'
 import { LinkOutlined, CheckCircleOutlined, SyncOutlined, WarningOutlined, FileExcelOutlined, EditOutlined } from '@ant-design/icons-vue'
 import AdminModal from '../../../components/AdminModal.vue'
 import { classificationApi } from '../../../api/standard.api'
@@ -40,21 +41,21 @@ ModuleRegistry.registerModules([AllCommunityModule])
 
 const showDetail = ref(false)
 const detailData = ref<any>({})
-const defCol = { sortable: true, resizable: true, flex: 1, minWidth: 80 }
+const defCol = { ...baseDefaultColDef }
 const stats: { icon: Component; label: string; value: string; color: string }[] = [
   { icon: LinkOutlined, label: '연동 항목', value: '48', color: '#0066CC' },
   { icon: CheckCircleOutlined, label: '동기화 완료', value: '45', color: '#28A745' },
   { icon: WarningOutlined, label: '불일치', value: '3', color: '#DC3545' },
   { icon: SyncOutlined, label: '최근 동기화', value: '03-25 06:00', color: '#FFC107' },
 ]
-const cols: ColDef[] = [
-  { headerName: 'No', valueGetter: 'node.rowIndex + 1', width: 50, maxWidth: 50, flex: 0 },
+const cols = withHeaderTooltips([
+  { headerName: 'No', valueGetter: 'node.rowIndex + 1', flex: 0.4, minWidth: 45 },
   { headerName: '분류체계', field: 'category', flex: 2 },
   { headerName: '데이터허브 코드', field: 'hubCode', flex: 1 },
   { headerName: '관리포털 코드', field: 'portalCode', flex: 1 },
   { headerName: '동기화 상태', field: 'status', width: 100 },
   { headerName: '최근 동기화', field: 'lastSync', width: 120 },
-]
+])
 const rows = ref([
   { category: '수자원 > 댐 > 수위', hubCode: 'WR-DAM-LV', portalCode: 'WR-DAM-LV', status: '일치', lastSync: '2026-03-25 06:00' },
   { category: '환경 > 수질 > IoT센서', hubCode: 'EN-WQ-IOT', portalCode: 'EN-WQ-IOT', status: '일치', lastSync: '2026-03-25 06:00' },

@@ -51,6 +51,8 @@ export const catalogApi = {
     apiClient.get<APIResponse<any[]>>('/portal/catalog/categories'),
   search: (params?: Record<string, any>) =>
     apiClient.get<PageResponse<any>>('/portal/catalog/search', { params }),
+  lineage: () =>
+    apiClient.get<APIResponse<any>>('/portal/catalog/lineage'),
 }
 
 // ── 유통 ──
@@ -65,6 +67,15 @@ export const distributionApi = {
     apiClient.get<PageResponse<any>>('/portal/distribution/downloads', { params }),
   downloadFile: (datasetId: string, format: string = 'CSV') =>
     apiClient.get(`/portal/distribution/download/${datasetId}?format=${format}`, { responseType: 'blob' }),
+  // API 키 관리
+  issueApiKey: (requestId: string) =>
+    apiClient.post<APIResponse<any>>(`/portal/distribution/requests/${requestId}/api-key`),
+  getApiKeyInfo: (requestId: string) =>
+    apiClient.get<APIResponse<any>>(`/portal/distribution/requests/${requestId}/api-key`),
+  regenerateApiKey: (requestId: string) =>
+    apiClient.post<APIResponse<any>>(`/portal/distribution/requests/${requestId}/api-key/regenerate`),
+  revokeApiKey: (requestId: string, apiKeyId: string) =>
+    apiClient.delete<APIResponse<any>>(`/portal/distribution/requests/${requestId}/api-key`, { params: { api_key_id: apiKeyId } }),
 }
 
 // ── 시각화 ──
@@ -128,4 +139,18 @@ export const aiApi = {
     apiClient.post<APIResponse<any>>('/portal/ai/search', { query }),
   suggestions: () =>
     apiClient.get<APIResponse<string[]>>('/portal/ai/suggestions'),
+}
+
+// ── 장바구니 ──
+export const cartApi = {
+  list: () =>
+    apiClient.get<APIResponse<any[]>>('/portal/cart'),
+  add: (data: any) =>
+    apiClient.post<APIResponse<any>>('/portal/cart', data),
+  remove: (itemId: string) =>
+    apiClient.delete<APIResponse<any>>(`/portal/cart/${itemId}`),
+  clear: () =>
+    apiClient.delete<APIResponse<any>>('/portal/cart'),
+  update: (itemId: string, data: any) =>
+    apiClient.put<APIResponse<any>>(`/portal/cart/${itemId}`, data),
 }

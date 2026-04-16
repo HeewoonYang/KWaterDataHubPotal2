@@ -1,8 +1,8 @@
 <template>
   <div class="board-page">
     <nav class="breadcrumb">
-      <router-link to="/portal">대시보드</router-link>
-      <span class="separator">/</span>
+      <span>게시판</span>
+      <span class="separator">&gt;</span>
       <span class="current">FAQ</span>
     </nav>
 
@@ -58,6 +58,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { EditOutlined } from '@ant-design/icons-vue'
+import { message } from '../../utils/message'
 import AdminModal from '../../components/AdminModal.vue'
 import { boardApi } from '../../api/portal.api'
 import { useAuthStore } from '../../stores/auth'
@@ -84,12 +85,12 @@ async function fetchFaq() {
 function openWrite() { writeForm.value = { title: '', content: '', category: '데이터 이용' }; showWrite.value = true }
 
 async function submitWrite() {
-  if (!writeForm.value.title.trim()) return alert('질문을 입력하세요.')
+  if (!writeForm.value.title.trim()) return message.warning('질문을 입력하세요.')
   const fd = new FormData()
   fd.append('title', writeForm.value.title)
   fd.append('content', writeForm.value.content)
   fd.append('category', writeForm.value.category)
-  try { await boardApi.createFaq(fd); showWrite.value = false; await fetchFaq() } catch { alert('등록에 실패했습니다.') }
+  try { await boardApi.createFaq(fd); showWrite.value = false; await fetchFaq() } catch { message.error('등록에 실패했습니다.') }
 }
 
 onMounted(fetchFaq)

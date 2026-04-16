@@ -29,7 +29,7 @@ async def get_dataset_columns(db: AsyncSession, dataset_id) -> list[DatasetColum
     return [DatasetColumnItem(column_name=r.column_name, column_name_kr=r.column_name_kr, data_type=r.data_type) for r in rows]
 
 
-async def list_charts(db: AsyncSession, params: PageRequest, chart_type: str | None = None) -> PageResponse:
+async def list_charts(db: AsyncSession, params: PageRequest, chart_type: str | None = None, dataset_id=None) -> PageResponse:
     query = (
         select(PortalVisualizationChart, UserAccount.name.label("owner_name"))
         .outerjoin(UserAccount, PortalVisualizationChart.owner_id == UserAccount.id)
@@ -37,6 +37,8 @@ async def list_charts(db: AsyncSession, params: PageRequest, chart_type: str | N
     )
     if chart_type:
         query = query.where(PortalVisualizationChart.chart_type == chart_type)
+    if dataset_id:
+        query = query.where(PortalVisualizationChart.dataset_id == dataset_id)
     if params.search:
         query = query.where(PortalVisualizationChart.chart_name.ilike(f"%{params.search}%"))
 

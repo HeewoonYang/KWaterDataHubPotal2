@@ -51,7 +51,7 @@
         <div class="table-actions"><button class="btn-excel" title="엑셀 다운로드" @click="exportGridToExcel(cols, rowData, '허브_통계')"><FileExcelOutlined /></button></div>
       </div>
       <div class="ag-grid-wrapper">
-        <AgGridVue class="ag-theme-alpine" :rowData="rowData" :columnDefs="cols" :defaultColDef="{ sortable: true, resizable: true, flex: 1, minWidth: 80 }" :pagination="true" :paginationPageSize="10" domLayout="autoHeight" @row-clicked="onRowClick" />
+        <AgGridVue :tooltipShowDelay="0" class="ag-theme-alpine" :rowData="rowData" :columnDefs="cols" :defaultColDef="defCol" :pagination="true" :paginationPageSize="10" domLayout="autoHeight" @row-clicked="onRowClick" />
       </div>
     </div>
 
@@ -78,9 +78,10 @@
 </template>
 <script setup lang="ts">
 import { exportGridToExcel } from '../../../utils/exportExcel'
+import { defaultColDef as baseDefaultColDef, withHeaderTooltips } from '../../../utils/gridHelper'
 import { ref, onMounted, type Component } from 'vue'
 import { AgGridVue } from 'ag-grid-vue3'
-import { AllCommunityModule, ModuleRegistry, type ColDef } from 'ag-grid-community'
+import { AllCommunityModule, ModuleRegistry } from 'ag-grid-community'
 import { BarChartOutlined, PieChartOutlined, DatabaseOutlined, TeamOutlined, CloudDownloadOutlined, ApiOutlined, FileExcelOutlined } from '@ant-design/icons-vue'
 import AdminModal from '../../../components/AdminModal.vue'
 import { adminOperationApi } from '../../../api/admin.api'
@@ -98,17 +99,18 @@ const monthData = [
   { month: '10월', value: 55 }, { month: '11월', value: 62 }, { month: '12월', value: 48 },
   { month: '1월', value: 72 }, { month: '2월', value: 68 }, { month: '3월', value: 85 },
 ]
-const cols: ColDef[] = [
-  { headerName: 'No', valueGetter: 'node.rowIndex + 1', width: 50, maxWidth: 50, flex: 0 },
-  { headerName: '일자', field: 'date', width: 110, maxWidth: 110, flex: 0 },
-  { headerName: '수집 건수', field: 'collected', width: 100, maxWidth: 100, flex: 0 },
-  { headerName: '정제 건수', field: 'cleansed', width: 100, maxWidth: 100, flex: 0 },
-  { headerName: '유통 건수', field: 'distributed', width: 100, maxWidth: 100, flex: 0 },
-  { headerName: 'API 호출', field: 'apiCalls', width: 100, maxWidth: 100, flex: 0 },
-  { headerName: '다운로드', field: 'downloads', width: 90, maxWidth: 90, flex: 0 },
-  { headerName: '활성 사용자', field: 'activeUsers', width: 95, maxWidth: 95, flex: 0 },
-  { headerName: '오류 건수', field: 'errors', width: 85, maxWidth: 85, flex: 0 },
-]
+const defCol = { ...baseDefaultColDef }
+const cols = withHeaderTooltips([
+  { headerName: 'No', valueGetter: 'node.rowIndex + 1', flex: 0.4, minWidth: 45 },
+  { headerName: '일자', field: 'date', flex: 0.8, minWidth: 100 },
+  { headerName: '수집 건수', field: 'collected', flex: 0.7, minWidth: 90 },
+  { headerName: '정제 건수', field: 'cleansed', flex: 0.7, minWidth: 90 },
+  { headerName: '유통 건수', field: 'distributed', flex: 0.7, minWidth: 90 },
+  { headerName: 'API 호출', field: 'apiCalls', flex: 0.7, minWidth: 90 },
+  { headerName: '다운로드', field: 'downloads', flex: 0.7, minWidth: 80 },
+  { headerName: '활성 사용자', field: 'activeUsers', flex: 0.7, minWidth: 85 },
+  { headerName: '오류 건수', field: 'errors', flex: 0.6, minWidth: 75 },
+])
 const rowData = ref([
   { date: '2026-03-25', collected: '48,320', cleansed: '47,800', distributed: '12,500', apiCalls: '52,100', downloads: 85, activeUsers: 42, errors: 3 },
   { date: '2026-03-24', collected: '45,100', cleansed: '44,600', distributed: '11,200', apiCalls: '48,700', downloads: 72, activeUsers: 38, errors: 1 },

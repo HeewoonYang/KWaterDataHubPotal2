@@ -1,18 +1,76 @@
 """관리자 - 데이터유통 API"""
 import math
-from fastapi import APIRouter, Depends
+import uuid
+from datetime import datetime
+
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import CurrentUser, get_current_user
 from app.database import get_db
 from app.models.distribution import (DistributionApiEndpoint, DistributionConfig, DistributionFormat,
-                                      DistributionFusionModel, DistributionMcpConfig, DistributionStats)
+                                      DistributionFusionModel, DistributionMcpConfig, DistributionRequest,
+                                      DistributionStats)
 from app.schemas.admin import (ApiEndpointResponse, DistConfigResponse, DistFormatResponse,
                                 DistStatsResponse, FusionModelResponse, McpConfigResponse)
 from app.schemas.common import APIResponse, PageResponse
 
 router = APIRouter()
+
+
+@router.get("/requests", response_model=PageResponse)
+async def list_requests(
+    page: int = 1, page_size: int = 20, status: str | None = None,
+    db: AsyncSession = Depends(get_db), user: CurrentUser = Depends(get_current_user),
+):
+    """유통 신청 목록 (관리자용)"""
+    query = select(DistributionRequest).where(DistributionRequest.is_deleted == False)
+    if status:
+        query = query.where(DistributionRequest.status == status)
+    total = (await db.execute(select(func.count()).select_from(query.subquery()))).scalar() or 0
+    offset = (page - 1) * page_size
+    rows = (await db.execute(query.order_by(DistributionRequest.created_at.desc()).offset(offset).limit(page_size))).scalars().all()
+    items = [{
+        "id": str(r.id), "request_type": r.request_type, "requested_format": r.requested_format,
+        "purpose": r.purpose, "status": r.status, "requester_id": str(r.requester_id) if r.requester_id else None,
+        "created_at": r.created_at.strftime("%Y-%m-%d %H:%M") if r.created_at else None,
+        "approved_at": r.approved_at.strftime("%Y-%m-%d %H:%M") if r.approved_at else None,
+    } for r in rows]
+    return PageResponse(items=items, total=total, page=page, page_size=page_size,
+                        total_pages=math.ceil(total / page_size) if page_size else 0)
+
+
+@router.put("/requests/{request_id}/approve", response_model=APIResponse)
+async def approve_request(
+    request_id: str, db: AsyncSession = Depends(get_db), user: CurrentUser = Depends(get_current_user),
+):
+    """유통 신청 승인"""
+    import uuid
+    req = (await db.execute(
+        select(DistributionRequest).where(DistributionRequest.id == uuid.UUID(request_id))
+    )).scalar_one_or_none()
+    if not req:
+        raise HTTPException(status_code=404, detail="신청을 찾을 수 없습니다")
+    req.status = "APPROVED"
+    req.approved_at = datetime.now()
+    req.approved_by = user.id
+    return APIResponse(message="승인되었습니다")
+
+
+@router.put("/requests/{request_id}/reject", response_model=APIResponse)
+async def reject_request(
+    request_id: str, db: AsyncSession = Depends(get_db), user: CurrentUser = Depends(get_current_user),
+):
+    """유통 신청 반려"""
+    import uuid
+    req = (await db.execute(
+        select(DistributionRequest).where(DistributionRequest.id == uuid.UUID(request_id))
+    )).scalar_one_or_none()
+    if not req:
+        raise HTTPException(status_code=404, detail="신청을 찾을 수 없습니다")
+    req.status = "REJECTED"
+    return APIResponse(message="반려되었습니다")
 
 
 @router.get("/configs", response_model=APIResponse[list[DistConfigResponse]])
@@ -73,3 +131,107 @@ async def list_stats(
     ) for r in rows]
     return PageResponse(items=items, total=total, page=page, page_size=page_size,
                         total_pages=math.ceil(total / page_size) if page_size else 0)
+
+
+# ══════ 융합 모델 CRUD ══════
+@router.post("/fusion-models", response_model=APIResponse)
+async def create_fusion_model(
+    model_name: str, source_datasets: str = None, fusion_type: str = "JOIN", schedule: str = None,
+    db: AsyncSession = Depends(get_db), user: CurrentUser = Depends(get_current_user),
+):
+    """융합 모델 등록"""
+    fm = DistributionFusionModel(
+        id=uuid.uuid4(), model_name=model_name, fusion_type=fusion_type,
+        source_config={"datasets": source_datasets, "schedule": schedule} if source_datasets else None,
+        status="ACTIVE", created_by=user.id, created_at=datetime.now(),
+    )
+    db.add(fm)
+    await db.flush()
+    return APIResponse(message="융합 모델이 등록되었습니다")
+
+
+@router.put("/fusion-models/{model_id}", response_model=APIResponse)
+async def update_fusion_model(
+    model_id: str, model_name: str = None, fusion_type: str = None, status: str = None,
+    db: AsyncSession = Depends(get_db), user: CurrentUser = Depends(get_current_user),
+):
+    """융합 모델 수정"""
+    fm = (await db.execute(select(DistributionFusionModel).where(DistributionFusionModel.id == uuid.UUID(model_id)))).scalar_one_or_none()
+    if not fm:
+        raise HTTPException(status_code=404, detail="융합 모델을 찾을 수 없습니다")
+    if model_name is not None:
+        fm.model_name = model_name
+    if fusion_type is not None:
+        fm.fusion_type = fusion_type
+    if status is not None:
+        fm.status = status
+    fm.updated_at = datetime.now()
+    fm.updated_by = user.id
+    await db.flush()
+    return APIResponse(message="융합 모델이 수정되었습니다")
+
+
+@router.delete("/fusion-models/{model_id}", response_model=APIResponse)
+async def delete_fusion_model(
+    model_id: str, db: AsyncSession = Depends(get_db), user: CurrentUser = Depends(get_current_user),
+):
+    """융합 모델 삭제"""
+    fm = (await db.execute(select(DistributionFusionModel).where(DistributionFusionModel.id == uuid.UUID(model_id)))).scalar_one_or_none()
+    if not fm:
+        raise HTTPException(status_code=404, detail="융합 모델을 찾을 수 없습니다")
+    fm.is_deleted = True
+    fm.updated_at = datetime.now()
+    return APIResponse(message="융합 모델이 삭제되었습니다")
+
+
+# ══════ MCP 서버 CRUD ══════
+@router.post("/mcp-configs", response_model=APIResponse)
+async def create_mcp_config(
+    mcp_name: str, server_url: str = None, description: str = None,
+    db: AsyncSession = Depends(get_db), user: CurrentUser = Depends(get_current_user),
+):
+    """MCP 서버 등록"""
+    mc = DistributionMcpConfig(
+        id=uuid.uuid4(), mcp_name=mcp_name, server_url=server_url,
+        transport_type="SSE", status="ACTIVE", description=description,
+        created_by=user.id, created_at=datetime.now(),
+    )
+    db.add(mc)
+    await db.flush()
+    return APIResponse(message="MCP 서버가 등록되었습니다")
+
+
+@router.put("/mcp-configs/{config_id}", response_model=APIResponse)
+async def update_mcp_config(
+    config_id: str, mcp_name: str = None, server_url: str = None, status: str = None, description: str = None,
+    db: AsyncSession = Depends(get_db), user: CurrentUser = Depends(get_current_user),
+):
+    """MCP 서버 수정"""
+    mc = (await db.execute(select(DistributionMcpConfig).where(DistributionMcpConfig.id == uuid.UUID(config_id)))).scalar_one_or_none()
+    if not mc:
+        raise HTTPException(status_code=404, detail="MCP 서버를 찾을 수 없습니다")
+    if mcp_name is not None:
+        mc.mcp_name = mcp_name
+    if server_url is not None:
+        mc.server_url = server_url
+    if status is not None:
+        mc.status = status
+    if description is not None:
+        mc.description = description
+    mc.updated_at = datetime.now()
+    mc.updated_by = user.id
+    await db.flush()
+    return APIResponse(message="MCP 서버가 수정되었습니다")
+
+
+@router.delete("/mcp-configs/{config_id}", response_model=APIResponse)
+async def delete_mcp_config(
+    config_id: str, db: AsyncSession = Depends(get_db), user: CurrentUser = Depends(get_current_user),
+):
+    """MCP 서버 삭제"""
+    mc = (await db.execute(select(DistributionMcpConfig).where(DistributionMcpConfig.id == uuid.UUID(config_id)))).scalar_one_or_none()
+    if not mc:
+        raise HTTPException(status_code=404, detail="MCP 서버를 찾을 수 없습니다")
+    mc.is_deleted = True
+    mc.updated_at = datetime.now()
+    return APIResponse(message="MCP 서버가 삭제되었습니다")

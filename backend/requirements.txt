@@ -12,9 +12,18 @@ psycopg[binary]==3.3.3
 # Task Queue
 celery[redis]==5.4.0
 redis==5.1.1
+croniter==3.0.3
 
 # Excel
 openpyxl==3.1.5
+
+# 이기종 DB 커넥터 (REQ-DHUB-005-003)
+# - oracledb: Thin/Thick 모드 모두 지원 (기본 Thin, Oracle Client 불필요)
+# - hdbcli: SAP HANA 공식 Python 드라이버
+# - pymssql: MS SQL Server (Sybase/Tibero 대체 JDBC는 별도)
+oracledb==2.4.1
+hdbcli==2.22.32
+pymssql==2.3.1
 
 # Validation & Serialization
 pydantic==2.9.2
@@ -24,5 +33,29 @@ pydantic-settings==2.5.2
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
 
+# AES-256-GCM 암호화 (DB 비밀번호 등 민감정보 저장용)
+cryptography==43.0.1
+
+# SSO
+python3-saml==1.16.0
+authlib==1.3.1
+
 # Utils
 httpx==0.27.2
+
+# Object Storage (MinIO / S3)
+minio==7.2.9
+
+# Observability (구조화 로그 + Prometheus 메트릭)
+structlog==24.4.0
+prometheus-fastapi-instrumentator==7.0.0
+
+# 공간정보(GIS) 연동 - PostGIS/ArcGIS/GeoServer/GeoJSON/Oracle Spatial
+# - geoalchemy2: SQLAlchemy geometry 컬럼 지원 (PostGIS)
+# - shapely: 기하 검증/변환 (is_valid, make_valid, WKB/WKT)
+# - pyproj: 좌표계 변환 (EPSG:5186/5179/4326)
+# - owslib: OGC 표준 클라이언트 (WFS/WMS GetCapabilities/GetFeature)
+geoalchemy2==0.15.2
+shapely==2.0.6
+pyproj==3.6.1
+owslib==0.31.0

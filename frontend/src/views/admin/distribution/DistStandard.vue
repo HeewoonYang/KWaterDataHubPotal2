@@ -3,7 +3,7 @@
     <div class="page-header"><h2>표준화 관리</h2><p class="page-desc">데이터 유통 표준화 규칙 및 적용 현황을 관리합니다.</p></div>
     <div class="table-section">
       <div class="table-header"><span class="table-count">표준화 규칙 <strong>{{ rows.length }}</strong>건</span><div class="table-actions"><button class="btn btn-primary btn-sm" @click="showRegister = true"><PlusOutlined /> 규칙 추가</button><button class="btn-excel" title="엑셀 다운로드" @click="exportGridToExcel(cols, rows, '유통_표준화')"><FileExcelOutlined /></button></div></div>
-      <div class="ag-grid-wrapper"><AgGridVue class="ag-theme-alpine" :rowData="rows" :columnDefs="cols" :defaultColDef="defCol" :pagination="true" :paginationPageSize="10" domLayout="autoHeight" @row-clicked="onRowClick" /></div>
+      <div class="ag-grid-wrapper"><AgGridVue :tooltipShowDelay="0" class="ag-theme-alpine" :rowData="rows" :columnDefs="cols" :defaultColDef="defCol" :pagination="true" :paginationPageSize="10" domLayout="autoHeight" @row-clicked="onRowClick" /></div>
     </div>
 
     <!-- 표준화 규칙 상세 팝업 -->
@@ -35,7 +35,7 @@
         <div class="modal-form-group"><label>설명</label><textarea rows="2" placeholder="규칙 설명"></textarea></div>
       </div>
       <template #footer>
-        <button class="btn btn-primary" @click="showRegister = false"><SaveOutlined /> 추가</button>
+        <button class="btn btn-primary" @click="handleRegister"><SaveOutlined /> 추가</button>
         <button class="btn btn-outline" @click="showRegister = false">취소</button>
       </template>
     </AdminModal>
@@ -43,31 +43,35 @@
 </template>
 <script setup lang="ts">
 import { exportGridToExcel } from '../../../utils/exportExcel'
+import { defaultColDef as baseDefaultColDef, withHeaderTooltips } from '../../../utils/gridHelper'
+
 import { ref, onMounted } from 'vue'
 import { AgGridVue } from 'ag-grid-vue3'
-import { AllCommunityModule, ModuleRegistry, type ColDef } from 'ag-grid-community'
+import { AllCommunityModule, ModuleRegistry } from 'ag-grid-community'
 import { PlusOutlined, FileExcelOutlined, EditOutlined, SaveOutlined } from '@ant-design/icons-vue'
+import { message } from '../../../utils/message'
 import AdminModal from '../../../components/AdminModal.vue'
 import { adminDistributionApi } from '../../../api/admin.api'
 ModuleRegistry.registerModules([AllCommunityModule])
 
 const showDetail = ref(false), showRegister = ref(false)
 const detailData = ref<any>({})
-const defCol = { sortable: true, resizable: true, flex: 1, minWidth: 80 }
-const cols: ColDef[] = [
-  { headerName: 'No', valueGetter: 'node.rowIndex + 1', width: 50, maxWidth: 50, flex: 0 },
+const defCol = { ...baseDefaultColDef }
+const cols = withHeaderTooltips([
+  { headerName: 'No', valueGetter: 'node.rowIndex + 1', flex: 0.4, minWidth: 45 },
   { headerName: '규칙명', field: 'name', flex: 2 },
   { headerName: '적용 대상', field: 'target', flex: 1 },
   { headerName: '표준 포맷', field: 'format', width: 100 },
   { headerName: '적용률', field: 'rate', width: 80 },
   { headerName: '상태', field: 'status', width: 70 },
-]
+])
 const rows = ref([
   { name: '날짜/시간 ISO 8601 표준화', target: '전체 데이터셋', format: 'ISO 8601', rate: '98%', status: '활성' },
   { name: '코드값 표준코드 매핑', target: '코드 포함 데이터', format: 'K-water 표준코드', rate: '95%', status: '활성' },
   { name: '좌표계 WGS84 통일', target: 'GIS 데이터셋', format: 'EPSG:4326', rate: '100%', status: '활성' },
   { name: '단위 SI 단위 통일', target: '계측 데이터', format: 'SI 단위계', rate: '92%', status: '활성' },
 ])
+
 
 onMounted(async () => {
   try {
@@ -92,6 +96,7 @@ function onRowClick(event: any) {
   detailData.value = event.data
   showDetail.value = true
 }
+function handleRegister() { message.success("등록되었습니다."); showRegister.value = false }
 </script>
 <style lang="scss" scoped>@use '../admin-common.scss';
 :deep(.ag-row) { cursor: pointer; }

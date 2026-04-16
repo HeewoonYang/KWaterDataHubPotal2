@@ -60,6 +60,7 @@ def run():
         seed_user_roles(s)
         seed_user_permissions(s)
         seed_user_role_permissions(s)
+        seed_user_screen_permissions(s)
         seed_user_accounts(s)
         seed_user_role_maps(s)
         seed_user_data_access_policies(s)
@@ -160,6 +161,21 @@ def seed_sys_config(s):
         ("openmetadata.url", "http://openmetadata:8585/api", "STRING", "연동"),
         ("kafka.bootstrap_servers", "kafka:9092", "STRING", "연동"),
         ("redis.url", "redis://redis:6379/0", "STRING", "연동"),
+        # 사용자 공통 설정
+        ("user.password.min_length", "8", "NUMBER", "USER_COMMON"),
+        ("user.password.complexity", "UPPER_LOWER_NUMBER_SPECIAL", "STRING", "USER_COMMON"),
+        ("user.password.change_cycle_days", "90", "NUMBER", "USER_COMMON"),
+        ("user.password.reuse_limit", "5", "NUMBER", "USER_COMMON"),
+        ("user.session.timeout_minutes", "30", "NUMBER", "USER_COMMON"),
+        ("user.session.max_devices", "3", "NUMBER", "USER_COMMON"),
+        ("user.session.auto_logout", "true", "BOOLEAN", "USER_COMMON"),
+        ("user.security.login_fail_lock_count", "5", "NUMBER", "USER_COMMON"),
+        ("user.security.login_fail_lock_minutes", "30", "NUMBER", "USER_COMMON"),
+        ("user.security.ip_access_control", "true", "BOOLEAN", "USER_COMMON"),
+        ("user.security.two_factor_auth", "OPTIONAL", "STRING", "USER_COMMON"),
+        ("user.notification.signup_approval", "EMAIL_PORTAL", "STRING", "USER_COMMON"),
+        ("user.notification.password_expiry_days", "7", "NUMBER", "USER_COMMON"),
+        ("user.notification.account_expiry_days", "14", "NUMBER", "USER_COMMON"),
     ]
     for key, val, typ, cat in configs:
         s.execute(text("""INSERT INTO sys_config (id, config_key, config_value, config_type, category, description, is_encrypted, created_at, is_deleted)
@@ -252,34 +268,52 @@ def seed_sys_package(s):
     print(f"  sys_package: {len(packages)}건")
 
 def seed_sys_interface(s):
+    # (code, name, itype, src, tgt, proto, url, fmt, stype, cron, timeout, retry)
     interfaces = [
-        ("IF-001", "오아시스 SSO 연동", "REST", "오아시스", "데이터허브", "HTTPS", "https://oasis.kwater.or.kr/sso/api", "JSON", "REALTIME"),
-        ("IF-002", "OpenMetadata 카탈로그 동기화", "REST", "OpenMetadata", "데이터허브", "HTTP", "http://openmetadata:8585/api", "JSON", "BATCH"),
-        ("IF-003", "Kafka 실시간 수집", "KAFKA", "IoT 센서", "데이터허브", "TCP", "kafka:9092", "JSON", "REALTIME"),
-        ("IF-004", "SAP ERP 연동", "SOAP", "SAP ERP", "데이터허브", "HTTPS", "https://sap.kwater.or.kr/ws", "XML", "BATCH"),
-        ("IF-005", "기상청 API 연동", "REST", "기상청", "데이터허브", "HTTPS", "https://apis.data.go.kr/weather", "JSON", "BATCH"),
-        ("IF-006", "수자원공사 GIS 연동", "REST", "GIS서버", "데이터허브", "HTTPS", "https://gis.kwater.or.kr/api", "JSON", "BATCH"),
-        ("IF-007", "외부 공개 API 제공", "REST", "데이터허브", "외부시스템", "HTTPS", "https://datahub.kwater.or.kr/api/v1", "JSON", "REALTIME"),
-        ("IF-008", "알림 메시지 발송", "REST", "데이터허브", "SMS Gateway", "HTTPS", "https://sms.kwater.or.kr/api", "JSON", "EVENT"),
+        ("IF-001", "오아시스 SSO 연동", "REST", "오아시스", "데이터허브", "HTTPS", "https://oasis.kwater.or.kr/sso/api", "JSON", "REALTIME", None, 5000, 2),
+        ("IF-002", "OpenMetadata 카탈로그 동기화", "REST", "OpenMetadata", "데이터허브", "HTTP", "http://openmetadata:8585/api", "JSON", "BATCH", "0 */6 * * *", 60000, 3),
+        ("IF-003", "Kafka 실시간 수집", "KAFKA", "IoT 센서", "데이터허브", "TCP", "kafka:9092", "JSON", "REALTIME", None, 30000, 5),
+        ("IF-004", "SAP ERP 연동", "SOAP", "SAP ERP", "데이터허브", "HTTPS", "https://sap.kwater.or.kr/ws", "XML", "BATCH", "0 2 * * *", 120000, 3),
+        ("IF-005", "기상청 API 연동", "REST", "기상청", "데이터허브", "HTTPS", "https://apis.data.go.kr/weather", "JSON", "BATCH", "*/30 * * * *", 15000, 3),
+        ("IF-006", "수자원공사 GIS 연동", "REST", "GIS서버", "데이터허브", "HTTPS", "https://gis.kwater.or.kr/api", "JSON", "BATCH", "0 4 * * *", 30000, 2),
+        ("IF-007", "외부 공개 API 제공", "REST", "데이터허브", "외부시스템", "HTTPS", "https://datahub.kwater.or.kr/api/v1", "JSON", "REALTIME", None, 10000, 0),
+        ("IF-008", "알림 메시지 발송", "REST", "데이터허브", "SMS Gateway", "HTTPS", "https://sms.kwater.or.kr/api", "JSON", "EVENT", None, 5000, 3),
     ]
-    for code, name, itype, src, tgt, proto, url, fmt, stype in interfaces:
-        s.execute(text("""INSERT INTO sys_interface (id, interface_code, interface_name, interface_type, source_system, target_system, protocol, endpoint_url, data_format, schedule_type, status, created_at, is_deleted)
-            VALUES (:id, :c, :n, :it, :src, :tgt, :p, :u, :f, :st, 'ACTIVE', :ca, false)"""),
-            {"id": uid(), "c": code, "n": name, "it": itype, "src": src, "tgt": tgt, "p": proto, "u": url, "f": fmt, "st": stype, "ca": now()})
+    IDS["interfaces"] = []
+    for code, name, itype, src, tgt, proto, url, fmt, stype, cron, timeout, retry in interfaces:
+        iid = uid()
+        IDS["interfaces"].append(iid)
+        s.execute(text("""INSERT INTO sys_interface (id, interface_code, interface_name, interface_type, source_system, target_system, protocol, endpoint_url, data_format, schedule_type, schedule_cron, timeout_ms, retry_count, status, created_at, is_deleted)
+            VALUES (:id, :c, :n, :it, :src, :tgt, :p, :u, :f, :st, :cron, :timeout, :retry, 'ACTIVE', :ca, false)"""),
+            {"id": iid, "c": code, "n": name, "it": itype, "src": src, "tgt": tgt, "p": proto, "u": url, "f": fmt, "st": stype, "cron": cron, "timeout": timeout, "retry": retry, "ca": now()})
     print(f"  sys_interface: {len(interfaces)}건")
 
 def seed_sys_integration(s):
+    import json as _json
     integrations = [
-        ("SAP ERP 데이터 연동", "SAP", "INBOUND"),
-        ("Oracle 레거시 DB 연동", "ORACLE", "INBOUND"),
-        ("티베로 수도 시스템", "TIBERO", "INBOUND"),
-        ("PostgreSQL 분석 DB", "POSTGRESQL", "OUTBOUND"),
-        ("MySQL 모니터링 DB", "MYSQL", "INBOUND"),
+        ("SAP ERP 데이터 연동", "SAP", "INBOUND",
+         {"host": "10.0.1.50", "port": 3200, "client": "100", "user": "sap_reader", "database": "S4H"},
+         {"mappings": [{"source": "MARA_MATNR", "target": "material_code", "transform": "TRIM"}, {"source": "MARA_MTART", "target": "material_type", "transform": ""}]}),
+        ("Oracle 레거시 DB 연동", "ORACLE", "INBOUND",
+         {"host": "10.10.1.100", "port": 1521, "service_name": "WATERDB", "schema": "WATER", "user": "datahub_ro"},
+         {"mappings": [{"source": "MEAS_DT", "target": "measurement_date", "transform": "TO_TIMESTAMP"}, {"source": "MEAS_VAL", "target": "value", "transform": "TO_NUMERIC"}]}),
+        ("티베로 수도 시스템", "TIBERO", "INBOUND",
+         {"host": "10.10.2.50", "port": 8629, "database": "WATERDB", "schema": "WATER_SYS", "user": "datahub"},
+         {"mappings": [{"source": "SITE_CD", "target": "site_code", "transform": ""}, {"source": "FLOW_RATE", "target": "flow_rate_m3s", "transform": "TO_NUMERIC"}]}),
+        ("PostgreSQL 분석 DB", "POSTGRESQL", "OUTBOUND",
+         {"host": "10.10.3.10", "port": 5432, "database": "analysis_db", "schema": "public", "user": "analyst"},
+         {"mappings": [{"source": "dataset_id", "target": "src_dataset_id", "transform": ""}, {"source": "values", "target": "analysis_values", "transform": "JSONB_CAST"}]}),
+        ("MySQL 모니터링 DB", "MYSQL", "INBOUND",
+         {"host": "10.10.4.20", "port": 3306, "database": "monitoring", "schema": "", "user": "monitor_ro"},
+         {"mappings": [{"source": "event_time", "target": "event_timestamp", "transform": "TO_TIMESTAMP"}, {"source": "severity", "target": "alert_level", "transform": "UPPER"}]}),
     ]
-    for name, dbtype, direction in integrations:
-        s.execute(text("""INSERT INTO sys_integration (id, integration_name, source_db_type, connection_config, sync_direction, sync_status, last_sync_at, created_at, is_deleted)
-            VALUES (:id, :n, :dt, CAST(:cc AS jsonb), :d, 'SUCCESS', :ls, :ca, false)"""),
-            {"id": uid(), "n": name, "dt": dbtype, "cc": '{"host":"10.0.1.100","port":5432}', "d": direction, "ls": now(hours_ago=random.randint(1, 24)), "ca": now()})
+    IDS["integrations"] = []
+    for name, dbtype, direction, conn_cfg, map_cfg in integrations:
+        iid = uid()
+        IDS["integrations"].append(iid)
+        s.execute(text("""INSERT INTO sys_integration (id, integration_name, source_db_type, connection_config, mapping_config, sync_direction, sync_status, last_sync_at, created_at, is_deleted)
+            VALUES (:id, :n, :dt, CAST(:cc AS jsonb), CAST(:mc AS jsonb), :d, 'SUCCESS', :ls, :ca, false)"""),
+            {"id": iid, "n": name, "dt": dbtype, "cc": _json.dumps(conn_cfg), "mc": _json.dumps(map_cfg), "d": direction, "ls": now(hours_ago=random.randint(1, 24)), "ca": now()})
     print(f"  sys_integration: {len(integrations)}건")
 
 def seed_sys_dmz_link(s):
@@ -301,19 +335,24 @@ def seed_sys_dmz_link(s):
 # ═══════════════════════════════════════
 
 def seed_user_roles(s):
+    # (code, name, role_group, is_sys, route, can_admin, sort)
     roles = [
-        ("ADMIN", "시스템관리자", True, "/portal", True, 1),
-        ("MANAGER", "데이터관리자", True, "/portal", True, 2),
-        ("INTERNAL", "내부사용자", True, "/portal", False, 3),
-        ("EXTERNAL", "외부사용자", True, "/portal", False, 4),
+        ("EMPLOYEE", "수공직원", "GENERAL", True, "/portal", False, 1),
+        ("KW_MANAGER", "수공관리자", "GENERAL", True, "/portal", False, 2),
+        ("EXECUTIVE", "수공임원", "GENERAL", True, "/portal", False, 3),
+        ("STEWARD", "데이터스튜어드", "DATA_ADMIN", True, "/portal", True, 4),
+        ("ENGINEER", "데이터엔지니어", "DATA_ADMIN", True, "/portal", True, 5),
+        ("OPERATOR", "운영자", "SYS_ADMIN", True, "/admin/system", True, 6),
+        ("SUPER_ADMIN", "수퍼관리자", "SYS_ADMIN", True, "/admin/system", True, 7),
+        ("EXTERNAL", "외부사용자", "EXTERNAL", True, "/portal", False, 8),
     ]
     IDS["roles"] = {}
-    for code, name, is_sys, route, admin, sort in roles:
+    for code, name, group, is_sys, route, admin, sort in roles:
         rid = uid()
         IDS["roles"][code] = rid
-        s.execute(text("""INSERT INTO user_role (id, role_code, role_name, description, is_system_role, default_route, can_access_admin, sort_order, created_at, is_deleted)
-            VALUES (:id, :c, :n, :d, :is_sys, :r, :ca_admin, :so, :ca, false)"""),
-            {"id": rid, "c": code, "n": name, "d": f"{name} 역할", "is_sys": is_sys, "r": route, "ca_admin": admin, "so": sort, "ca": now()})
+        s.execute(text("""INSERT INTO user_role (id, role_code, role_name, role_group, description, is_system_role, default_route, can_access_admin, sort_order, created_at, is_deleted)
+            VALUES (:id, :c, :n, :rg, :d, :is_sys, :r, :ca_admin, :so, :ca, false)"""),
+            {"id": rid, "c": code, "n": name, "rg": group, "d": f"{name} 역할", "is_sys": is_sys, "r": route, "ca_admin": admin, "so": sort, "ca": now()})
     print(f"  user_role: {len(roles)}건")
 
 def seed_user_permissions(s):
@@ -344,10 +383,17 @@ def seed_user_permissions(s):
     print(f"  user_permission: {len(perms)}건")
 
 def seed_user_role_permissions(s):
+    all_perms = list(IDS["perms"].keys())
+    data_admin_perms = ["MENU_ADMIN_STANDARD", "MENU_ADMIN_COLLECTION", "MENU_ADMIN_CLEANSING", "MENU_ADMIN_STORAGE", "MENU_ADMIN_DIST", "MENU_ADMIN_OPS", "DATA_READ", "DATA_DOWNLOAD", "DATA_WRITE", "DATA_DELETE", "API_ACCESS", "VISUALIZATION", "AI_SEARCH"]
+    general_perms = ["DATA_READ", "DATA_DOWNLOAD", "API_ACCESS", "VISUALIZATION", "AI_SEARCH"]
     mapping = {
-        "ADMIN": list(IDS["perms"].keys()),
-        "MANAGER": ["MENU_ADMIN_STANDARD", "MENU_ADMIN_COLLECTION", "MENU_ADMIN_CLEANSING", "MENU_ADMIN_STORAGE", "MENU_ADMIN_DIST", "MENU_ADMIN_OPS", "DATA_READ", "DATA_DOWNLOAD", "DATA_WRITE", "DATA_DELETE", "API_ACCESS", "VISUALIZATION", "AI_SEARCH"],
-        "INTERNAL": ["DATA_READ", "DATA_DOWNLOAD", "API_ACCESS", "VISUALIZATION", "AI_SEARCH"],
+        "SUPER_ADMIN": all_perms,
+        "OPERATOR": all_perms,
+        "ENGINEER": data_admin_perms,
+        "STEWARD": data_admin_perms,
+        "EXECUTIVE": general_perms,
+        "KW_MANAGER": general_perms,
+        "EMPLOYEE": general_perms,
         "EXTERNAL": ["DATA_READ", "DATA_DOWNLOAD"],
     }
     cnt = 0
@@ -358,14 +404,75 @@ def seed_user_role_permissions(s):
             cnt += 1
     print(f"  user_role_permission: {cnt}건")
 
+def seed_user_screen_permissions(s):
+    """화면별 CUD 권한 시드 데이터"""
+    screens = [
+        ("SYS_CLOUD", "클라우드 구성", "시스템관리"), ("SYS_DR", "DR/백업 관리", "시스템관리"),
+        ("SYS_PKG", "패키지 검증", "시스템관리"), ("SYS_INTF", "표준 인터페이스", "시스템관리"),
+        ("SYS_INTG", "이기종 통합", "시스템관리"), ("SYS_DMZ", "DMZ 연계", "시스템관리"),
+        ("USR_LIST", "조직/사용자 관리", "사용자관리"), ("USR_EXT", "외부 사용자", "사용자관리"),
+        ("USR_SYNC", "조직사용자 동기화", "사용자관리"), ("USR_COMMON", "사용자 공통", "사용자관리"),
+        ("USR_ROLES", "역할 관리", "사용자관리"), ("USR_ACCESS", "데이터 접근제어", "사용자관리"),
+        ("STD_COMPLY", "표준 준수 현황", "데이터표준"), ("STD_CLASS", "분류/등급 관리", "데이터표준"),
+        ("STD_WORD", "단어사전", "데이터표준"), ("STD_DOMAIN", "도메인사전", "데이터표준"),
+        ("STD_TERM", "용어사전", "데이터표준"), ("STD_CODE", "코드사전", "데이터표준"),
+        ("STD_GRADE", "등급 관리", "데이터표준"), ("STD_QUALITY", "품질 점검", "데이터표준"),
+        ("STD_QLINK", "품질 연계", "데이터표준"),
+        ("COL_UI", "수집 현황", "데이터수집"), ("COL_STRAT", "수집 전략", "데이터수집"),
+        ("COL_DB", "DB 연결", "데이터수집"), ("COL_EXT", "외부기관 연계", "데이터수집"),
+        ("COL_LIGHT", "경량 수집", "데이터수집"), ("COL_MIG", "마이그레이션", "데이터수집"),
+        ("COL_SPATIAL", "공간데이터 수집", "데이터수집"), ("COL_DATASET", "데이터셋 설정", "데이터수집"),
+        ("COL_DASH", "수집 대시보드", "데이터수집"), ("COL_PROFILE", "데이터 프로파일링", "데이터수집"),
+        ("COL_GATE", "품질 게이트", "데이터수집"),
+        ("CLS_UI", "정제 현황", "데이터정제"), ("CLS_TRANSFORM", "변환 관리", "데이터정제"),
+        ("CLS_ANON", "비식별화", "데이터정제"), ("CLS_TECH", "기술 검토", "데이터정제"),
+        ("STO_MANAGE", "저장소 관리", "데이터저장"), ("STO_HIGHSPEED", "고속 DB", "데이터저장"),
+        ("STO_UNSTRUCT", "비정형 저장소", "데이터저장"),
+        ("DST_UI", "유통 현황", "데이터유통"), ("DST_CONFIG", "유통 설정", "데이터유통"),
+        ("DST_STD", "유통 표준", "데이터유통"), ("DST_FORMAT", "유통 포맷", "데이터유통"),
+        ("DST_STATS", "유통 통계", "데이터유통"), ("DST_API", "표준 API", "데이터유통"),
+        ("DST_FUSION", "융합 모델", "데이터유통"), ("DST_MCP", "MCP 연계", "데이터유통"),
+        ("DST_USAGE", "사용 현황", "데이터유통"),
+        ("OPS_STATS", "허브 통계", "운영관리"), ("OPS_OPTIMIZE", "최적화", "운영관리"),
+        ("OPS_AI", "AI 모니터", "운영관리"), ("OPS_APM", "APM 대시보드", "운영관리"),
+        ("OPS_INTG_MON", "연계 모니터링", "운영관리"), ("OPS_SEC", "보안 모니터링", "운영관리"),
+        ("OPS_EVENT", "데이터 이벤트", "운영관리"),
+    ]
+    sys_groups = ["시스템관리", "사용자관리"]
+    data_groups = ["데이터표준", "데이터수집", "데이터정제", "데이터저장", "데이터유통", "운영관리"]
+    cnt = 0
+    for role_code in ["SUPER_ADMIN", "OPERATOR", "ENGINEER", "STEWARD", "EXECUTIVE", "KW_MANAGER", "EMPLOYEE", "EXTERNAL"]:
+        for sc, sn, sg in screens:
+            if role_code == "SUPER_ADMIN":
+                c, u, d = True, True, True
+            elif role_code == "OPERATOR":
+                c, u, d = True, True, (sg not in ["사용자관리"])
+            elif role_code in ("ENGINEER", "STEWARD"):
+                if sg in data_groups:
+                    c, u, d = True, True, (role_code == "ENGINEER")
+                else:
+                    c, u, d = False, False, False
+            else:
+                c, u, d = False, False, False
+            s.execute(text("""INSERT INTO user_screen_permission (id, role_id, screen_code, screen_name, screen_group, can_create, can_update, can_delete, created_at, is_deleted)
+                VALUES (:id, :rid, :sc, :sn, :sg, :cc, :cu, :cd, :ca, false)"""),
+                {"id": uid(), "rid": IDS["roles"][role_code], "sc": sc, "sn": sn, "sg": sg, "cc": c, "cu": u, "cd": d, "ca": now()})
+            cnt += 1
+    print(f"  user_screen_permission: {cnt}건")
+
+
 def seed_user_accounts(s):
     users = [
-        ("admin", "admin", "INTERNAL", "20210001", "관리자", "admin@kwater.or.kr", "010-1234-0001", "IT001", "정보화처", "처장", "ACTIVE", "ADMIN"),
-        ("manager", "manager", "INTERNAL", "20210015", "김매니저", "manager@kwater.or.kr", "010-1234-0002", "WR001", "수자원부", "과장", "ACTIVE", "MANAGER"),
-        ("user", "user", "INTERNAL", "20220032", "홍길동", "user@kwater.or.kr", "010-1234-0003", "WS001", "수도부", "대리", "ACTIVE", "INTERNAL"),
-        ("lee", "lee123", "INTERNAL", "20220048", "이영희", "lee@kwater.or.kr", "010-1234-0004", "EV001", "환경부", "사원", "ACTIVE", "INTERNAL"),
-        ("park", "park123", "INTERNAL", "20190087", "박철수", "park@kwater.or.kr", "010-1234-0005", "WR001", "수자원부", "부장", "ACTIVE", "MANAGER"),
-        ("jung", "jung123", "INTERNAL", "20230012", "정미경", "jung@kwater.or.kr", "010-1234-0006", "IT001", "정보화처", "사원", "SUSPENDED", "INTERNAL"),
+        ("admin", "admin", "INTERNAL", "20210001", "관리자", "admin@kwater.or.kr", "010-1234-0001", "IT001", "정보화처", "처장", "ACTIVE", "SUPER_ADMIN"),
+        ("operator", "operator", "INTERNAL", "20210002", "운영담당", "operator@kwater.or.kr", "010-1234-0010", "IT001", "정보화처", "과장", "ACTIVE", "OPERATOR"),
+        ("manager", "manager", "INTERNAL", "20210015", "김매니저", "manager@kwater.or.kr", "010-1234-0002", "WR001", "수자원부", "과장", "ACTIVE", "STEWARD"),
+        ("engineer", "engineer", "INTERNAL", "20210016", "이엔지니어", "engineer@kwater.or.kr", "010-1234-0011", "IT001", "정보화처", "대리", "ACTIVE", "ENGINEER"),
+        ("executive", "executive", "INTERNAL", "20190001", "박임원", "executive@kwater.or.kr", "010-1234-0012", "MG001", "경영부", "임원", "ACTIVE", "EXECUTIVE"),
+        ("kwmgr", "kwmgr", "INTERNAL", "20200015", "최관리자", "kwmgr@kwater.or.kr", "010-1234-0013", "WR001", "수자원부", "부장", "ACTIVE", "KW_MANAGER"),
+        ("user", "user", "INTERNAL", "20220032", "홍길동", "user@kwater.or.kr", "010-1234-0003", "WS001", "수도부", "대리", "ACTIVE", "EMPLOYEE"),
+        ("lee", "lee123", "INTERNAL", "20220048", "이영희", "lee@kwater.or.kr", "010-1234-0004", "EV001", "환경부", "사원", "ACTIVE", "EMPLOYEE"),
+        ("park", "park123", "INTERNAL", "20190087", "박철수", "park@kwater.or.kr", "010-1234-0005", "WR001", "수자원부", "부장", "ACTIVE", "STEWARD"),
+        ("jung", "jung123", "INTERNAL", "20230012", "정미경", "jung@kwater.or.kr", "010-1234-0006", "IT001", "정보화처", "사원", "SUSPENDED", "EMPLOYEE"),
         ("guest", "guest", "EXTERNAL", None, "외부사용자", "guest@example.com", "010-9876-0001", None, None, None, "ACTIVE", "EXTERNAL"),
         ("ext_kim", "ext123", "EXTERNAL", None, "김외부", "ext_kim@test.com", "010-9876-0002", None, "한국환경공단", None, "ACTIVE", "EXTERNAL"),
         ("ext_lee", "ext456", "EXTERNAL", None, "이외부", "ext_lee@test.com", "010-9876-0003", None, "환경부", None, "ACTIVE", "EXTERNAL"),
@@ -383,7 +490,7 @@ def seed_user_accounts(s):
         fn = first_names[random.randint(0, len(first_names)-2):random.randint(0, len(first_names)-2)+2] or "준호"
         name = ln + fn
         emp = f"202{random.randint(0,5)}{random.randint(1000,9999)}"
-        users.append((f"user{i+10}", f"pass{i+10}", "INTERNAL", emp, name, f"user{i+10}@kwater.or.kr", f"010-{random.randint(1000,9999)}-{random.randint(1000,9999)}", dept_code, dept_name, pos, "ACTIVE", "INTERNAL"))
+        users.append((f"user{i+10}", f"pass{i+10}", "INTERNAL", emp, name, f"user{i+10}@kwater.or.kr", f"010-{random.randint(1000,9999)}-{random.randint(1000,9999)}", dept_code, dept_name, pos, "ACTIVE", "EMPLOYEE"))
 
     IDS["users"] = {}
     for login_id, pw, utype, emp, name, email, phone, dept_code, dept_name, pos, status, role in users:
@@ -396,9 +503,14 @@ def seed_user_accounts(s):
 
 def seed_user_role_maps(s):
     cnt = 0
-    role_map = {"admin": "ADMIN", "manager": "MANAGER", "park": "MANAGER", "guest": "EXTERNAL", "ext_kim": "EXTERNAL", "ext_lee": "EXTERNAL", "ext_park": "EXTERNAL"}
+    role_map = {
+        "admin": "SUPER_ADMIN", "operator": "OPERATOR",
+        "manager": "STEWARD", "engineer": "ENGINEER", "park": "STEWARD",
+        "executive": "EXECUTIVE", "kwmgr": "KW_MANAGER",
+        "guest": "EXTERNAL", "ext_kim": "EXTERNAL", "ext_lee": "EXTERNAL", "ext_park": "EXTERNAL",
+    }
     for login_id, uid_val in IDS["users"].items():
-        role_code = role_map.get(login_id, "INTERNAL")
+        role_code = role_map.get(login_id, "EMPLOYEE")
         s.execute(text("""INSERT INTO user_role_map (id, user_id, role_id, granted_by, granted_at, status) VALUES (:id, :u, :r, :gb, :ga, 'ACTIVE')"""),
             {"id": uid(), "u": uid_val, "r": IDS["roles"][role_code], "gb": IDS["users"]["admin"], "ga": now(days_ago=30)})
         cnt += 1
@@ -406,13 +518,22 @@ def seed_user_role_maps(s):
 
 def seed_user_data_access_policies(s):
     policies = [
-        ("관리자 전체 접근", "ADMIN", 1, '["READ","WRITE","DELETE","DOWNLOAD","MANAGE"]'),
-        ("관리자 전체 접근 L2", "ADMIN", 2, '["READ","WRITE","DELETE","DOWNLOAD","MANAGE"]'),
-        ("관리자 전체 접근 L3", "ADMIN", 3, '["READ","WRITE","DELETE","DOWNLOAD","MANAGE"]'),
-        ("매니저 내부공유", "MANAGER", 2, '["READ","WRITE","DOWNLOAD"]'),
-        ("매니저 공개", "MANAGER", 3, '["READ","WRITE","DOWNLOAD"]'),
-        ("내부사용자 내부공유", "INTERNAL", 2, '["READ","DOWNLOAD"]'),
-        ("내부사용자 공개", "INTERNAL", 3, '["READ","DOWNLOAD"]'),
+        ("수퍼관리자 전체 접근 L1", "SUPER_ADMIN", 1, '["READ","WRITE","DELETE","DOWNLOAD","MANAGE"]'),
+        ("수퍼관리자 전체 접근 L2", "SUPER_ADMIN", 2, '["READ","WRITE","DELETE","DOWNLOAD","MANAGE"]'),
+        ("수퍼관리자 전체 접근 L3", "SUPER_ADMIN", 3, '["READ","WRITE","DELETE","DOWNLOAD","MANAGE"]'),
+        ("운영자 전체 접근 L1", "OPERATOR", 1, '["READ","WRITE","DELETE","DOWNLOAD","MANAGE"]'),
+        ("운영자 전체 접근 L2", "OPERATOR", 2, '["READ","WRITE","DELETE","DOWNLOAD","MANAGE"]'),
+        ("운영자 전체 접근 L3", "OPERATOR", 3, '["READ","WRITE","DELETE","DOWNLOAD","MANAGE"]'),
+        ("데이터스튜어드 내부공유", "STEWARD", 2, '["READ","WRITE","DOWNLOAD"]'),
+        ("데이터스튜어드 공개", "STEWARD", 3, '["READ","WRITE","DOWNLOAD"]'),
+        ("데이터엔지니어 내부공유", "ENGINEER", 2, '["READ","WRITE","DOWNLOAD"]'),
+        ("데이터엔지니어 공개", "ENGINEER", 3, '["READ","WRITE","DOWNLOAD"]'),
+        ("수공직원 내부공유", "EMPLOYEE", 2, '["READ","DOWNLOAD"]'),
+        ("수공직원 공개", "EMPLOYEE", 3, '["READ","DOWNLOAD"]'),
+        ("수공관리자 내부공유", "KW_MANAGER", 2, '["READ","DOWNLOAD"]'),
+        ("수공관리자 공개", "KW_MANAGER", 3, '["READ","DOWNLOAD"]'),
+        ("수공임원 내부공유", "EXECUTIVE", 2, '["READ","DOWNLOAD"]'),
+        ("수공임원 공개", "EXECUTIVE", 3, '["READ","DOWNLOAD"]'),
         ("외부사용자 공개", "EXTERNAL", 3, '["READ","DOWNLOAD"]'),
     ]
     for name, role, grade, actions in policies:
@@ -519,17 +640,23 @@ def seed_std_request_history(s):
 
 def seed_quality_schedule(s):
     schedules = [
-        ("일일 완전성 검증", "0 6 * * *", "댐 수위 관측 데이터"),
-        ("주간 유효성 검증", "0 2 * * 1", "수질 모니터링 데이터"),
-        ("월간 정확성 검증", "0 3 1 * *", "전력 사용량 통계"),
-        ("일일 일관성 검증", "0 7 * * *", "상수도 배수관 GIS"),
+        # (스케줄명, cron, target_dataset). target_dataset 은 scheduler_dispatch 가 파싱:
+        #   "CATALOG:ALL"       → 카탈로그 전량
+        #   "DISTRIBUTION:ALL"  → 유통 전량
+        #   "DISTRIBUTION:<id>" → 특정 유통
+        #   그 외                → dataset_name 기반 카탈로그 검증
+        ("일일 카탈로그 전량 품질 검증", "0 2 * * *", "CATALOG:ALL"),
+        ("주간 유통 전량 품질 검증", "0 3 * * 1", "DISTRIBUTION:ALL"),
+        ("주간 표준용어 준수 검사", "30 3 * * 1", "CATALOG:ALL"),
+        ("일일 완전성 검증(댐 수위)", "0 6 * * *", "댐 수위 관측 데이터"),
+        ("주간 유효성 검증(수질)", "0 2 * * 1", "수질 모니터링 데이터"),
     ]
-    rules = s.execute(text("SELECT id FROM quality_rule LIMIT 4")).fetchall()
+    rules = s.execute(text("SELECT id FROM quality_rule LIMIT 5")).fetchall()
     for i, (name, cron, target) in enumerate(schedules):
         rule_id = rules[i][0] if i < len(rules) else None
         s.execute(text("""INSERT INTO quality_schedule (rule_id, schedule_name, schedule_cron, target_dataset, is_active, last_run_at, next_run_at, created_at, is_deleted)
             VALUES (:ri, :n, :c, :t, true, :lr, :nr, :ca, false)"""),
-            {"ri": rule_id, "n": name, "c": cron, "t": target, "lr": now(hours_ago=6), "nr": now() + timedelta(hours=18), "ca": now()})
+            {"ri": rule_id, "n": name, "c": cron, "t": target, "lr": None, "nr": now() + timedelta(minutes=5), "ca": now()})
     print(f"  quality_schedule: {len(schedules)}건")
 
 
@@ -549,6 +676,12 @@ def seed_catalog_datasets(s):
         ("상수도 수질검사 결과", "상수도 수질검사 결과", "WS", 2, "수도부", "DB", "DAILY", 520000, 2100000000, "user"),
         ("경영실적 데이터 (분기)", "경영실적 데이터 (분기)", "MG", 1, "경영부", "CSV", "MONTHLY", 4800, 3200000, "park"),
         ("IoT 센서 원시 데이터", "IoT 센서 원시 데이터", "WR", 2, "수자원부", "IoT", "REALTIME", 1800000000, 980000000000, "manager"),
+        # ── L1 등급 데이터셋 (비공개, 승인필요) ──
+        ("수도계량기 실시간 수위", "수도계량기 실시간 수위", "WS", 1, "수도부", "IoT", "REALTIME", 45000000, 28000000000, "admin"),
+        ("정수장 수질검사 원본", "정수장 수질검사 원본", "WS", 1, "수도부", "DB", "DAILY", 8500000, 5200000000, "manager"),
+        ("기관간 수자원 공유 API", "기관간 수자원 공유 API", "WR", 1, "수자원부", "API", "REALTIME", None, None, "admin"),
+        ("댐 구조물 점검 기록", "댐 구조물 점검 기록", "WR", 1, "수자원부", "CSV", "MONTHLY", 12400, 85000000, "manager"),
+        ("상수관로 GIS 좌표 데이터", "상수관로 GIS 좌표 데이터", "WS", 1, "수도부", "GIS", "WEEKLY", 2800000, 18000000000, "admin"),
     ]
     IDS["datasets"] = {}
     cls_ids = {}
@@ -946,7 +1079,7 @@ def seed_distribution_dataset(s):
         IDS["dist_ds"].append(did)
         s.execute(text("""INSERT INTO distribution_dataset (id, dataset_id, distribution_name, is_downloadable, requires_approval, view_count, download_count, status, created_at, is_deleted)
             VALUES (:id, :di, :dn, true, :ra, :vc, :dc, 'ACTIVE', :ca, false)"""),
-            {"id": did, "di": ds_id, "dn": ds_name, "ra": random.random() > 0.5, "vc": random.randint(10, 500), "dc": random.randint(1, 100), "ca": now()})
+            {"id": did, "di": ds_id, "dn": ds_name, "ra": ds_name in ("수도계량기 실시간 수위","정수장 수질검사 원본","기관간 수자원 공유 API","댐 구조물 점검 기록","상수관로 GIS 좌표 데이터","경영실적 데이터 (분기)") or random.random() > 0.7, "vc": random.randint(10, 500), "dc": random.randint(1, 100), "ca": now()})
     print(f"  distribution_dataset: {len(IDS['dist_ds'])}건")
 
 def seed_distribution_config(s):
@@ -1118,14 +1251,24 @@ def seed_portal_chart_template(s):
     print(f"  portal_chart_template: {len(templates)}건")
 
 def seed_portal_bookmark(s):
-    bookmarks = [("user", "DATASET"), ("user", "DATASET"), ("user", "DATASET"), ("manager", "DATASET"), ("lee", "CHART")]
+    ds_names = list(IDS["datasets"].keys())
     ds_ids = list(IDS["datasets"].values())
     cnt = 0
-    for login, rtype in bookmarks:
-        s.execute(text("""INSERT INTO portal_bookmark (id, user_id, resource_type, resource_id, resource_name, bookmarked_at)
-            VALUES (:id, :u, :rt, :ri, :rn, :ba)"""),
-            {"id": uid(), "u": IDS["users"][login], "rt": rtype, "ri": random.choice(ds_ids), "rn": "즐겨찾기 항목", "ba": now(days_ago=random.randint(0, 10))})
-        cnt += 1
+    # 각 사용자에게 12건씩 즐겨찾기 생성
+    for login in ["admin", "manager", "user", "lee", "park"]:
+        used = set()
+        for d in range(12):
+            rtype = random.choice(["DATASET", "DATASET", "DATASET", "CHART", "API"])
+            ds_name = ds_names[d % len(ds_names)]
+            ri = IDS["datasets"][ds_name]
+            key = (login, rtype, str(ri))
+            if key in used:
+                continue
+            used.add(key)
+            s.execute(text("""INSERT INTO portal_bookmark (id, user_id, resource_type, resource_id, resource_name, bookmarked_at)
+                VALUES (:id, :u, :rt, :ri, :rn, :ba)"""),
+                {"id": uid(), "u": IDS["users"][login], "rt": rtype, "ri": ri, "rn": ds_name, "ba": now(days_ago=random.randint(0, 20))})
+            cnt += 1
     print(f"  portal_bookmark: {cnt}건")
 
 def seed_portal_recent_view(s):
@@ -1187,18 +1330,18 @@ def seed_portal_sitemap_menu(s):
     menus = [
         (None, "메인홈", "PORTAL_HOME", 1, "/portal", "DashboardOutlined", '["ALL"]', 1),
         (None, "데이터카탈로그", "PORTAL_CATALOG", 1, "/portal/catalog", "DatabaseOutlined", '["ALL"]', 2),
-        (None, "데이터시각화", "PORTAL_VIS", 1, "/portal/visualization", "BarChartOutlined", '["ADMIN","MANAGER","INTERNAL"]', 3),
+        (None, "데이터시각화", "PORTAL_VIS", 1, "/portal/visualization", "BarChartOutlined", '["SUPER_ADMIN","OPERATOR","ENGINEER","STEWARD","EXECUTIVE","KW_MANAGER","EMPLOYEE"]', 3),
         (None, "데이터유통", "PORTAL_DIST", 1, "/portal/distribution", "ShareAltOutlined", '["ALL"]', 4),
-        (None, "AI검색", "PORTAL_AI", 1, "/portal/ai-search", "SearchOutlined", '["ADMIN","MANAGER","INTERNAL"]', 5),
+        (None, "AI검색", "PORTAL_AI", 1, "/portal/ai-search", "SearchOutlined", '["SUPER_ADMIN","OPERATOR","ENGINEER","STEWARD","EXECUTIVE","KW_MANAGER","EMPLOYEE"]', 5),
         (None, "마이페이지", "PORTAL_MY", 1, "/portal/mypage", "UserOutlined", '["ALL"]', 6),
-        (None, "시스템관리", "ADMIN_SYS", 1, "/admin/system", "SettingOutlined", '["ADMIN"]', 10),
-        (None, "사용자관리", "ADMIN_USER", 1, "/admin/user", "TeamOutlined", '["ADMIN"]', 11),
-        (None, "데이터표준", "ADMIN_STD", 1, "/admin/standard", "BookOutlined", '["ADMIN","MANAGER"]', 12),
-        (None, "데이터수집", "ADMIN_COLL", 1, "/admin/collection", "CloudDownloadOutlined", '["ADMIN","MANAGER"]', 13),
-        (None, "데이터정제", "ADMIN_CLS", 1, "/admin/cleansing", "FilterOutlined", '["ADMIN","MANAGER"]', 14),
-        (None, "데이터저장", "ADMIN_STOR", 1, "/admin/storage", "HddOutlined", '["ADMIN","MANAGER"]', 15),
-        (None, "데이터유통", "ADMIN_DIST", 1, "/admin/distribution", "SwapOutlined", '["ADMIN","MANAGER"]', 16),
-        (None, "운영관리", "ADMIN_OPS", 1, "/admin/operation", "ToolOutlined", '["ADMIN","MANAGER"]', 17),
+        (None, "시스템관리", "ADMIN_SYS", 1, "/admin/system", "SettingOutlined", '["SUPER_ADMIN","OPERATOR"]', 10),
+        (None, "사용자관리", "ADMIN_USER", 1, "/admin/user", "TeamOutlined", '["SUPER_ADMIN","OPERATOR"]', 11),
+        (None, "데이터표준", "ADMIN_STD", 1, "/admin/standard", "BookOutlined", '["SUPER_ADMIN","OPERATOR","ENGINEER","STEWARD"]', 12),
+        (None, "데이터수집", "ADMIN_COLL", 1, "/admin/collection", "CloudDownloadOutlined", '["SUPER_ADMIN","OPERATOR","ENGINEER","STEWARD"]', 13),
+        (None, "데이터정제", "ADMIN_CLS", 1, "/admin/cleansing", "FilterOutlined", '["SUPER_ADMIN","OPERATOR","ENGINEER","STEWARD"]', 14),
+        (None, "데이터저장", "ADMIN_STOR", 1, "/admin/storage", "HddOutlined", '["SUPER_ADMIN","OPERATOR","ENGINEER","STEWARD"]', 15),
+        (None, "데이터유통", "ADMIN_DIST", 1, "/admin/distribution", "SwapOutlined", '["SUPER_ADMIN","OPERATOR","ENGINEER","STEWARD"]', 16),
+        (None, "운영관리", "ADMIN_OPS", 1, "/admin/operation", "ToolOutlined", '["SUPER_ADMIN","OPERATOR","ENGINEER","STEWARD"]', 17),
     ]
     for parent, name, code, level, route, icon, roles, sort in menus:
         s.execute(text("""INSERT INTO portal_sitemap_menu (id, parent_id, menu_name, menu_code, menu_level, route_path, icon_name, required_roles, is_visible, sort_order, created_at, is_deleted)

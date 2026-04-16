@@ -3,7 +3,7 @@
     <div class="page-header"><h2>유통 포맷</h2><p class="page-desc">데이터 유통 포맷(CSV, JSON, API 등) 설정을 관리합니다.</p></div>
     <div class="table-section">
       <div class="table-header"><span class="table-count">유통 포맷 <strong>{{ rows.length }}</strong>건</span><div class="table-actions"><button class="btn-excel" title="엑셀 다운로드" @click="exportGridToExcel(cols, rows, '유통_포맷')"><FileExcelOutlined /></button></div></div>
-      <div class="ag-grid-wrapper"><AgGridVue class="ag-theme-alpine" :rowData="rows" :columnDefs="cols" :defaultColDef="defCol" :pagination="true" :paginationPageSize="10" domLayout="autoHeight" @row-clicked="onRowClick" /></div>
+      <div class="ag-grid-wrapper"><AgGridVue :tooltipShowDelay="0" class="ag-theme-alpine" :rowData="rows" :columnDefs="cols" :defaultColDef="defCol" :pagination="true" :paginationPageSize="10" domLayout="autoHeight" @row-clicked="onRowClick" /></div>
     </div>
 
     <!-- 유통 포맷 상세 팝업 -->
@@ -28,9 +28,10 @@
 </template>
 <script setup lang="ts">
 import { exportGridToExcel } from '../../../utils/exportExcel'
+import { defaultColDef as baseDefaultColDef, withHeaderTooltips } from '../../../utils/gridHelper'
 import { ref, onMounted } from 'vue'
 import { AgGridVue } from 'ag-grid-vue3'
-import { AllCommunityModule, ModuleRegistry, type ColDef } from 'ag-grid-community'
+import { AllCommunityModule, ModuleRegistry } from 'ag-grid-community'
 import { FileExcelOutlined, EditOutlined } from '@ant-design/icons-vue'
 import AdminModal from '../../../components/AdminModal.vue'
 import { adminDistributionApi } from '../../../api/admin.api'
@@ -38,16 +39,16 @@ ModuleRegistry.registerModules([AllCommunityModule])
 
 const showDetail = ref(false)
 const detailData = ref<any>({})
-const defCol = { sortable: true, resizable: true, flex: 1, minWidth: 80 }
-const cols: ColDef[] = [
-  { headerName: 'No', valueGetter: 'node.rowIndex + 1', width: 50, maxWidth: 50, flex: 0 },
+const defCol = { ...baseDefaultColDef }
+const cols = withHeaderTooltips([
+  { headerName: 'No', valueGetter: 'node.rowIndex + 1', flex: 0.4, minWidth: 45 },
   { headerName: '포맷명', field: 'name', flex: 1 },
   { headerName: 'MIME Type', field: 'mime', flex: 1 },
   { headerName: '인코딩', field: 'encoding', width: 90 },
   { headerName: '최대 용량', field: 'maxSize', width: 90 },
   { headerName: '사용 데이터셋', field: 'datasets', width: 100 },
   { headerName: '상태', field: 'status', width: 70 },
-]
+])
 const rows = ref([
   { name: 'CSV', mime: 'text/csv', encoding: 'UTF-8', maxSize: '500 MB', datasets: 42, status: '활성' },
   { name: 'JSON', mime: 'application/json', encoding: 'UTF-8', maxSize: '200 MB', datasets: 35, status: '활성' },

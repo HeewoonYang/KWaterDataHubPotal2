@@ -1,11 +1,16 @@
+from sqlalchemy import create_engine
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from app.config import settings
 
 engine = create_async_engine(settings.DATABASE_URL, echo=settings.DEBUG, pool_size=20, max_overflow=10)
 
 async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+
+# Celery 워커용 동기 세션
+sync_engine = create_engine(settings.DATABASE_URL_SYNC, pool_size=5, max_overflow=5)
+SyncSessionLocal = sessionmaker(bind=sync_engine, class_=Session, expire_on_commit=False)
 
 
 class Base(DeclarativeBase):

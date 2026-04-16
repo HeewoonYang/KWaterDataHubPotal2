@@ -1,8 +1,8 @@
 <template>
   <div class="board-page">
     <nav class="breadcrumb">
-      <router-link to="/portal">대시보드</router-link>
-      <span class="separator">/</span>
+      <span>게시판</span>
+      <span class="separator">&gt;</span>
       <span class="current">공지사항</span>
     </nav>
 
@@ -97,10 +97,14 @@
 
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
+import { useRoute } from 'vue-router'
 import { SearchOutlined, EditOutlined, PaperClipOutlined, PushpinOutlined } from '@ant-design/icons-vue'
+import { message } from '../../utils/message'
 import AdminModal from '../../components/AdminModal.vue'
 import { boardApi } from '../../api/portal.api'
 import { useAuthStore } from '../../stores/auth'
+
+const route = useRoute()
 
 const authStore = useAuthStore()
 const isAdmin = computed(() => authStore.isAdminOrManager)
@@ -149,7 +153,7 @@ function onFileChange(e: Event) {
 }
 
 async function submitWrite() {
-  if (!writeForm.value.title.trim()) return alert('제목을 입력하세요.')
+  if (!writeForm.value.title.trim()) return message.warning('제목을 입력하세요.')
   const fd = new FormData()
   fd.append('title', writeForm.value.title)
   fd.append('content', writeForm.value.content)
@@ -159,7 +163,7 @@ async function submitWrite() {
     await boardApi.createNotice(fd)
     showWrite.value = false
     await fetchList()
-  } catch { alert('등록에 실패했습니다.') }
+  } catch { message.error('등록에 실패했습니다.') }
 }
 
 async function deletePost() {
@@ -168,7 +172,7 @@ async function deletePost() {
     await boardApi.deleteNotice(detailPost.value.id)
     showDetail.value = false
     await fetchList()
-  } catch { alert('삭제에 실패했습니다.') }
+  } catch { message.error('삭제에 실패했습니다.') }
 }
 
 async function downloadFile(att: any) {
@@ -178,7 +182,7 @@ async function downloadFile(att: any) {
     const a = document.createElement('a')
     a.href = url; a.download = att.file_name; a.click()
     URL.revokeObjectURL(url)
-  } catch { alert('파일 다운로드에 실패했습니다.') }
+  } catch { message.error('파일 다운로드에 실패했습니다.') }
 }
 
 function formatSize(bytes: number) {
@@ -188,7 +192,15 @@ function formatSize(bytes: number) {
   return (bytes / 1048576).toFixed(1) + ' MB'
 }
 
-onMounted(fetchList)
+onMounted(async () => {
+  await fetchList()
+  // 대시보드에서 공지 클릭 시 ?detail=id 로 넘어오면 자동으로 상세 열기
+  const detailId = route.query.detail as string
+  if (detailId) {
+    const target = posts.value.find((p: any) => String(p.id) === detailId)
+    if (target) openDetail(target)
+  }
+})
 </script>
 
 <style lang="scss" scoped>

@@ -6,7 +6,7 @@
     </div>
     <div class="table-section">
       <div class="table-header"><span class="table-count">유통 이력 <strong>{{ rows.length }}</strong>건</span><div class="table-actions"><button class="btn-excel" title="엑셀 다운로드" @click="exportGridToExcel(cols, rows, '유통_이력')"><FileExcelOutlined /></button></div></div>
-      <div class="ag-grid-wrapper"><AgGridVue class="ag-theme-alpine" :rowData="rows" :columnDefs="cols" :defaultColDef="defCol" :pagination="true" :paginationPageSize="10" domLayout="autoHeight" @row-clicked="onRowClick" /></div>
+      <div class="ag-grid-wrapper"><AgGridVue :tooltipShowDelay="0" class="ag-theme-alpine" :rowData="rows" :columnDefs="cols" :defaultColDef="defCol" :pagination="true" :paginationPageSize="10" domLayout="autoHeight" @row-clicked="onRowClick" /></div>
     </div>
 
     <!-- 유통 이력 상세 팝업 -->
@@ -30,9 +30,10 @@
 </template>
 <script setup lang="ts">
 import { exportGridToExcel } from '../../../utils/exportExcel'
+import { defaultColDef as baseDefaultColDef, withHeaderTooltips } from '../../../utils/gridHelper'
 import { ref, onMounted, type Component } from 'vue'
 import { AgGridVue } from 'ag-grid-vue3'
-import { AllCommunityModule, ModuleRegistry, type ColDef } from 'ag-grid-community'
+import { AllCommunityModule, ModuleRegistry } from 'ag-grid-community'
 import { SwapOutlined, DownloadOutlined, ApiOutlined, CheckCircleOutlined, FileExcelOutlined, EditOutlined } from '@ant-design/icons-vue'
 import AdminModal from '../../../components/AdminModal.vue'
 import { adminDistributionApi } from '../../../api/admin.api'
@@ -40,21 +41,21 @@ ModuleRegistry.registerModules([AllCommunityModule])
 
 const showDetail = ref(false)
 const detailData = ref<any>({})
-const defCol = { sortable: true, resizable: true, flex: 1, minWidth: 80 }
+const defCol = { ...baseDefaultColDef }
 const stats: { icon: Component; label: string; value: string; color: string }[] = [
   { icon: SwapOutlined, label: '금일 유통 건수', value: '1,250', color: '#0066CC' },
   { icon: DownloadOutlined, label: '금일 다운로드', value: '340', color: '#28A745' },
   { icon: ApiOutlined, label: 'API 호출', value: '45,200', color: '#9b59b6' },
   { icon: CheckCircleOutlined, label: '성공률', value: '99.8%', color: '#FFC107' },
 ]
-const cols: ColDef[] = [
-  { headerName: 'No', valueGetter: 'node.rowIndex + 1', width: 50, maxWidth: 50, flex: 0 },
+const cols = withHeaderTooltips([
+  { headerName: 'No', valueGetter: 'node.rowIndex + 1', flex: 0.4, minWidth: 45 },
   { headerName: '데이터셋', field: 'dataset', flex: 2 },
   { headerName: '유통 방식', field: 'method', width: 100 },
   { headerName: '요청자', field: 'requester', width: 90 },
   { headerName: '요청 시간', field: 'time', width: 140 },
   { headerName: '결과', field: 'result', width: 70 },
-]
+])
 const rows = ref([
   { dataset: '댐 수위 관측 데이터', method: 'API', requester: '홍길동', time: '2026-03-25 09:30', result: '성공' },
   { dataset: '수질 모니터링 센서', method: 'CSV 다운로드', requester: '이외부', time: '2026-03-25 09:25', result: '성공' },

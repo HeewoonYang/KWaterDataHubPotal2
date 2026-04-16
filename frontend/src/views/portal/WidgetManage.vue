@@ -2,12 +2,12 @@
   <div class="admin-page">
     <nav class="breadcrumb">
       <router-link to="/portal">대시보드</router-link>
-      <span class="separator">/</span>
+      <span class="separator">&gt;</span>
       <span class="current">위젯 관리</span>
     </nav>
 
     <div class="page-header">
-      <h2>위젯 관리</h2>
+      <h2>위젯 관리*</h2>
       <p class="page-desc">대시보드 위젯 템플릿을 등록하고 관리합니다.</p>
     </div>
 
@@ -168,7 +168,7 @@ const detailItem = ref<any>({})
 const defaultColDef = { sortable: true, resizable: true, flex: 1, minWidth: 80 }
 
 const columnDefs: ColDef[] = [
-  { headerName: 'No', valueGetter: 'node.rowIndex + 1', width: 50, maxWidth: 50, flex: 0 },
+  { headerName: 'No', valueGetter: 'node.rowIndex + 1', width: 55, resizable: false },
   { headerName: '위젯명', field: 'name', flex: 1.5, minWidth: 160,
     cellRenderer: (params: any) => {
       const catSymbols: Record<string, string> = { kpi: 'K', card: 'C', list: 'L', chart: 'G' }
@@ -178,7 +178,7 @@ const columnDefs: ColDef[] = [
       return `<span style="display:flex;align-items:center;gap:6px"><span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:4px;background:${c}15;color:${c};font-size:11px;font-weight:700;">${sym}</span><span style="font-weight:600">${params.value}</span></span>`
     }
   },
-  { headerName: '카테고리', field: 'cat', width: 100, maxWidth: 100, flex: 0,
+  { headerName: '카테고리', field: 'cat', width: 110,
     cellRenderer: (params: any) => {
       const map: Record<string, string> = { kpi: '#0066CC', card: '#28A745', list: '#FFC107', chart: '#9b59b6' }
       const label: Record<string, string> = { kpi: 'KPI', card: '카드', list: '리스트', chart: '차트' }
@@ -187,12 +187,12 @@ const columnDefs: ColDef[] = [
     }
   },
   { headerName: '설명', field: 'desc', flex: 2, minWidth: 200 },
-  { headerName: '접근역할', field: 'rolesLabel', width: 100, maxWidth: 120, flex: 0,
+  { headerName: '접근역할', field: 'rolesLabel', width: 130,
     cellRenderer: (params: any) => {
       return `<span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;background:#e3f2fd;color:#1565c0">${params.value}</span>`
     }
   },
-  { headerName: '데이터등급', field: 'dataLevel', width: 100, maxWidth: 110, flex: 0,
+  { headerName: '데이터등급', field: 'dataLevel', width: 115,
     cellRenderer: (params: any) => {
       const colors: Record<string, string> = { public: '#28A745', internal: '#0066CC', restricted: '#FFC107', confidential: '#DC3545' }
       const labels: Record<string, string> = { public: '공개', internal: '내부', restricted: '제한', confidential: '기밀' }
@@ -200,10 +200,10 @@ const columnDefs: ColDef[] = [
       return `<span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;background:${c}1a;color:${c}">${labels[params.value] || params.value}</span>`
     }
   },
-  { headerName: '색상', field: 'color', width: 70, maxWidth: 70, flex: 0,
+  { headerName: '색상', field: 'color', width: 85,
     cellRenderer: (params: any) => `<span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:${params.value};border:1px solid #ddd;vertical-align:middle"></span>`
   },
-  { headerName: '관리', width: 80, maxWidth: 80, flex: 0, sortable: false,
+  { headerName: '관리', width: 100, sortable: false,
     cellRenderer: () => `<button style="padding:3px 10px;border:1px solid #0066CC;color:#0066CC;border-radius:4px;font-size:12px;background:#fff;cursor:pointer">상세</button>`
   },
 ]

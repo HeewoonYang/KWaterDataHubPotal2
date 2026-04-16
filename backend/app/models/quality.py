@@ -2,9 +2,10 @@ from datetime import datetime
 from decimal import Decimal
 
 from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Index, Integer, Numeric, String, Text, text
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 
 from app.database import Base
+from app.models.base import AuditMixin, new_uuid
 
 
 class QualityRule(Base):
@@ -42,9 +43,43 @@ class QualityCheckResult(Base):
     executed_at = Column(DateTime, default=datetime.now, comment="실행일시")
     execution_time_ms = Column(Integer, comment="실행시간MS")
     details = Column(JSONB, comment="상세정보")
+    # 추적성 FK (신규) - dataset_name 은 하위호환 유지
+    catalog_dataset_id = Column(UUID(as_uuid=True), ForeignKey("catalog_dataset.id", ondelete="SET NULL"), nullable=True, comment="카탈로그데이터셋ID")
+    distribution_dataset_id = Column(UUID(as_uuid=True), ForeignKey("distribution_dataset.id", ondelete="SET NULL"), nullable=True, comment="유통데이터셋ID")
+    collection_job_id = Column(UUID(as_uuid=True), ForeignKey("collection_job.id", ondelete="SET NULL"), nullable=True, comment="수집잡ID")
+    # AI 학습 피드백 플래그
+    ai_feedback_used = Column(Boolean, default=False, comment="AI학습반영여부")
+    ai_feedback_at = Column(DateTime, comment="AI학습반영일시")
+    ai_training_score = Column(Numeric(5, 2), comment="AI학습기여가중치(0~100)")
 
     __table_args__ = (
+        Index("ix_qcr_catalog", "catalog_dataset_id"),
+        Index("ix_qcr_distribution", "distribution_dataset_id"),
+        Index("ix_qcr_collection_job", "collection_job_id"),
+        Index("ix_qcr_ai_feedback", "ai_feedback_used"),
         {"comment": "품질검증결과"},
+    )
+
+
+class QualityAiFeedback(AuditMixin, Base):
+    """품질AI학습피드백"""
+    __tablename__ = "quality_ai_feedback"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=new_uuid, comment="품질AI학습피드백ID")
+    source_result_id = Column(Integer, ForeignKey("quality_check_result.id", ondelete="CASCADE"), nullable=False, comment="원본품질결과ID")
+    target_system = Column(String(30), nullable=False, comment="대상AI시스템 (LLM/RAG/T2SQL)")
+    feedback_type = Column(String(30), nullable=False, comment="피드백유형 (FAILURE_PATTERN/LOW_SCORE/STANDARD_VIOLATION/MISSING_METADATA)")
+    payload = Column(JSONB, nullable=False, comment="학습페이로드JSON")
+    dispatch_status = Column(String(20), default="PENDING", comment="전송상태 (PENDING/SENT/FAILED/SKIPPED)")
+    dispatched_at = Column(DateTime, comment="전송일시")
+    dispatch_error = Column(Text, comment="전송오류메시지")
+
+    __table_args__ = (
+        Index("ix_qaf_source", "source_result_id"),
+        Index("ix_qaf_status", "dispatch_status"),
+        Index("ix_qaf_target", "target_system"),
+        Index("ix_qaf_not_deleted", "is_deleted", postgresql_where=text("is_deleted = false")),
+        {"comment": "품질AI학습피드백"},
     )
 
 

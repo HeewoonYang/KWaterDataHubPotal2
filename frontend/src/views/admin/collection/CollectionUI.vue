@@ -6,7 +6,7 @@
     </div>
     <div class="table-section">
       <div class="table-header"><span class="table-count">파이프라인 실행 이력 <strong>{{ rows.length }}</strong>건</span><div class="table-actions"><button class="btn-excel" title="엑셀 다운로드" @click="exportGridToExcel(cols, rows, '수집_이력')"><FileExcelOutlined /></button></div></div>
-      <div class="ag-grid-wrapper"><AgGridVue class="ag-theme-alpine" :rowData="rows" :columnDefs="cols" :defaultColDef="defCol" :pagination="true" :paginationPageSize="10" domLayout="autoHeight" @row-clicked="onRowClick" /></div>
+      <div class="ag-grid-wrapper"><AgGridVue class="ag-theme-alpine" :rowData="rows" :columnDefs="cols" :defaultColDef="defCol" :pagination="true" :paginationPageSize="10" domLayout="autoHeight" :tooltipShowDelay="0" @row-clicked="onRowClick" /></div>
     </div>
 
     <!-- 실행 이력 상세 팝업 -->
@@ -30,6 +30,7 @@
 </template>
 <script setup lang="ts">
 import { exportGridToExcel } from '../../../utils/exportExcel'
+import { defaultColDef as baseDefaultColDef, withHeaderTooltips } from '../../../utils/gridHelper'
 import { ref, onMounted, type Component } from 'vue'
 import { AgGridVue } from 'ag-grid-vue3'
 import { AllCommunityModule, ModuleRegistry, type ColDef } from 'ag-grid-community'
@@ -40,21 +41,21 @@ ModuleRegistry.registerModules([AllCommunityModule])
 
 const showDetail = ref(false)
 const detailData = ref<any>({})
-const defCol = { sortable: true, resizable: true, flex: 1, minWidth: 80 }
+const defCol = { ...baseDefaultColDef }
 const stats: { icon: Component; label: string; value: string; color: string }[] = [
   { icon: PlayCircleOutlined, label: '실행 중', value: '3', color: '#0066CC' },
   { icon: CheckCircleOutlined, label: '금일 성공', value: '28', color: '#28A745' },
   { icon: CloseCircleOutlined, label: '금일 실패', value: '1', color: '#DC3545' },
   { icon: SyncOutlined, label: '금일 수집량', value: '1.2M건', color: '#FFC107' },
 ]
-const cols: ColDef[] = [
-  { headerName: 'No', valueGetter: 'node.rowIndex + 1', width: 50, maxWidth: 50, flex: 0 },
-  { headerName: '파이프라인', field: 'pipeline', flex: 2 },
-  { headerName: '시작 시간', field: 'startTime', width: 140 },
-  { headerName: '소요 시간', field: 'duration', width: 90 },
-  { headerName: '수집 건수', field: 'count', width: 100 },
-  { headerName: '결과', field: 'result', width: 70 },
-]
+const cols: ColDef[] = withHeaderTooltips([
+  { headerName: 'No', valueGetter: 'node.rowIndex + 1', flex: 0.4, minWidth: 50 },
+  { headerName: '파이프라인', field: 'pipeline', flex: 1.5, minWidth: 150 },
+  { headerName: '시작 시간', field: 'startTime', flex: 1, minWidth: 120 },
+  { headerName: '소요 시간', field: 'duration', flex: 0.6, minWidth: 70 },
+  { headerName: '수집 건수', field: 'count', flex: 0.7, minWidth: 80 },
+  { headerName: '결과', field: 'result', flex: 0.5, minWidth: 60 },
+])
 const rows = ref([
   { pipeline: '댐 수위 관측 (실시간)', startTime: '2026-03-25 09:00', duration: '2초', count: '15,240', result: '성공' },
   { pipeline: '수질 센서 데이터 (Kafka)', startTime: '2026-03-25 09:00', duration: '실시간', count: '892,300', result: '실행 중' },

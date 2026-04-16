@@ -1,23 +1,23 @@
 """포털 게시판 API (공지사항, 질의응답, FAQ)"""
 import math
-import os
 import uuid
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
-from fastapi.responses import FileResponse
+from fastapi.responses import StreamingResponse
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import CurrentUser, get_current_user, get_current_user_optional
+from app.core.object_storage import object_storage
 from app.database import get_db
 from app.models.board import BoardAttachment, BoardPost
 from app.schemas.common import APIResponse, PageResponse
 
 router = APIRouter()
 
-UPLOAD_DIR = "/app/uploads"
-os.makedirs(UPLOAD_DIR, exist_ok=True)
+# 게시판 첨부파일 오브젝트 스토리지 prefix
+BOARD_OBJECT_PREFIX = "board/"
 
 
 # ── 공지사항 ──
@@ -191,10 +191,21 @@ async def download_attachment(attachment_id: str, db: AsyncSession = Depends(get
     att = (await db.execute(select(BoardAttachment).where(BoardAttachment.id == uuid.UUID(attachment_id)))).scalar_one_or_none()
     if not att:
         raise HTTPException(status_code=404, detail="파일을 찾을 수 없습니다")
-    file_path = os.path.join(UPLOAD_DIR, att.stored_name)
-    if not os.path.exists(file_path):
-        raise HTTPException(status_code=404, detail="파일이 서버에 없습니다")
-    return FileResponse(file_path, filename=att.file_name, media_type=att.content_type or "application/octet-stream")
+    try:
+        resp = object_storage.stream_object(att.stored_name)
+    except Exception:
+        raise HTTPException(status_code=404, detail="오브젝트 스토리지에 파일이 없습니다")
+
+    def _iter():
+        try:
+            for chunk in resp.stream(32 * 1024):
+                yield chunk
+        finally:
+            resp.close()
+            resp.release_conn()
+
+    headers = {"Content-Disposition": f'attachment; filename="{att.file_name or att.stored_name}"'}
+    return StreamingResponse(_iter(), media_type=att.content_type or "application/octet-stream", headers=headers)
 
 
 # ── 디스크 용량 ──
@@ -237,11 +248,9 @@ async def _save_files(db: AsyncSession, post_id, files: list[UploadFile]):
     for f in files:
         if not f.filename:
             continue
-        stored = f"{uuid.uuid4().hex}_{f.filename}"
-        path = os.path.join(UPLOAD_DIR, stored)
+        stored = f"{BOARD_OBJECT_PREFIX}{uuid.uuid4().hex}_{f.filename}"
         content = await f.read()
-        with open(path, "wb") as fp:
-            fp.write(content)
+        object_storage.put_object(stored, content, content_type=f.content_type)
         db.add(BoardAttachment(
             id=uuid.uuid4(), post_id=post_id, file_name=f.filename,
             stored_name=stored, file_size=len(content), content_type=f.content_type,

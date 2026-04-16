@@ -3,11 +3,11 @@
     <!-- Breadcrumb -->
     <nav class="breadcrumb">
       <router-link to="/portal">대시보드</router-link>
-      <span class="separator">/</span>
-      <router-link to="/portal/realtime-measure">실시간 계측DB</router-link>
-      <span class="separator">/</span>
-      <router-link :to="{ path: '/portal/realtime-measure/office', query: { region: selectedRegion } }">사무소 대시보드</router-link>
-      <span class="separator">/</span>
+      <span class="separator">&gt;</span>
+      <router-link to="/portal/monitoring">실시간모니터링</router-link>
+      <span class="separator">&gt;</span>
+      <router-link :to="{ path: '/portal/monitoring/rwis/office', query: { region: selectedRegion } }">사무소 대시보드</router-link>
+      <span class="separator">&gt;</span>
       <span class="current">사업장 대시보드</span>
     </nav>
 
@@ -18,9 +18,9 @@
 
     <!-- Tab bar -->
     <div class="measure-tabs">
-      <router-link to="/portal/realtime-measure">전체</router-link>
-      <router-link to="/portal/realtime-measure/office">사무소 대시보드</router-link>
-      <router-link to="/portal/realtime-measure/site" class="active">사업장 대시보드</router-link>
+      <router-link to="/portal/monitoring">전체</router-link>
+      <router-link to="/portal/monitoring/rwis/office">사무소 대시보드</router-link>
+      <router-link to="/portal/monitoring/rwis/site" class="active">사업장 대시보드</router-link>
     </div>
 
     <!-- Filter bar -->
@@ -338,14 +338,12 @@ const tagGridData = ref([
 const defaultColDef = { sortable: true, resizable: true, flex: 1, minWidth: 70 }
 
 const tagColumnDefs: ColDef[] = [
-  { headerName: 'No', valueGetter: 'node.rowIndex + 1', width: 50, maxWidth: 50, flex: 0 },
-  { headerName: '태그명', field: 'tagName', width: 90, maxWidth: 90, flex: 0, cellStyle: { fontWeight: '600' } },
+  { headerName: 'No', valueGetter: 'node.rowIndex + 1', width: 55, resizable: false },
+  { headerName: '태그명', field: 'tagName', width: 105, cellStyle: { fontWeight: '600' } },
   {
     headerName: '상태',
     field: 'status',
-    width: 80,
-    maxWidth: 80,
-    flex: 0,
+    width: 95,
     cellRenderer: (params: any) => {
       const badge = document.createElement('span')
       badge.textContent = params.value
@@ -368,12 +366,12 @@ const tagColumnDefs: ColDef[] = [
   },
   { headerName: '설명', field: 'desc', flex: 3, minWidth: 200 },
   { headerName: '범주', field: 'category', flex: 1.5, minWidth: 150 },
-  { headerName: '공급인', field: 'supplier', width: 70, maxWidth: 70, flex: 0 },
-  { headerName: '태그타입', field: 'tagType', width: 90, maxWidth: 90, flex: 0 },
-  { headerName: '데이터건수', field: 'dataCount', width: 90, maxWidth: 90, flex: 0 },
-  { headerName: '구간', field: 'section', width: 70, maxWidth: 70, flex: 0, type: 'numericColumn' },
-  { headerName: '단위', field: 'unit', width: 70, maxWidth: 70, flex: 0 },
-  { headerName: 'ID', field: 'id', width: 60, maxWidth: 60, flex: 0 },
+  { headerName: '공급인', field: 'supplier', width: 90 },
+  { headerName: '태그타입', field: 'tagType', width: 110 },
+  { headerName: '데이터건수', field: 'dataCount', width: 115 },
+  { headerName: '구간', field: 'section', width: 90, type: 'numericColumn' },
+  { headerName: '단위', field: 'unit', width: 85 },
+  { headerName: 'ID', field: 'id', width: 80 },
 ]
 </script>
 

@@ -6,7 +6,7 @@
     </div>
     <div class="table-section">
       <div class="table-header"><span class="table-count">고속DB 인스턴스 <strong>{{ rows.length }}</strong>건</span><div class="table-actions"><button class="btn-excel" title="엑셀 다운로드" @click="exportGridToExcel(cols, rows, '고속DB_인스턴스')"><FileExcelOutlined /></button></div></div>
-      <div class="ag-grid-wrapper"><AgGridVue class="ag-theme-alpine" :rowData="rows" :columnDefs="cols" :defaultColDef="defCol" :pagination="true" :paginationPageSize="10" domLayout="autoHeight" @row-clicked="onRowClick" /></div>
+      <div class="ag-grid-wrapper"><AgGridVue :tooltipShowDelay="0" class="ag-theme-alpine" :rowData="rows" :columnDefs="cols" :defaultColDef="defCol" :pagination="true" :paginationPageSize="10" domLayout="autoHeight" @row-clicked="onRowClick" /></div>
     </div>
 
     <!-- 인스턴스 상세 팝업 -->
@@ -31,9 +31,10 @@
 </template>
 <script setup lang="ts">
 import { exportGridToExcel } from '../../../utils/exportExcel'
+import { defaultColDef as baseDefaultColDef, withHeaderTooltips } from '../../../utils/gridHelper'
 import { ref, onMounted, type Component } from 'vue'
 import { AgGridVue } from 'ag-grid-vue3'
-import { AllCommunityModule, ModuleRegistry, type ColDef } from 'ag-grid-community'
+import { AllCommunityModule, ModuleRegistry } from 'ag-grid-community'
 import { ThunderboltOutlined, HddOutlined, DashboardOutlined, DatabaseOutlined, FileExcelOutlined, EditOutlined } from '@ant-design/icons-vue'
 import AdminModal from '../../../components/AdminModal.vue'
 import { adminStorageApi } from '../../../api/admin.api'
@@ -41,26 +42,28 @@ ModuleRegistry.registerModules([AllCommunityModule])
 
 const showDetail = ref(false)
 const detailData = ref<any>({})
-const defCol = { sortable: true, resizable: true, flex: 1, minWidth: 80 }
+const defCol = { ...baseDefaultColDef }
 const stats: { icon: Component; label: string; value: string; color: string }[] = [
   { icon: ThunderboltOutlined, label: '초당 쿼리', value: '12,500', color: '#0066CC' },
   { icon: HddOutlined, label: '사용 용량', value: '3.2 TB', color: '#28A745' },
   { icon: DashboardOutlined, label: '평균 응답', value: '2.3ms', color: '#9b59b6' },
   { icon: DatabaseOutlined, label: '활성 연결', value: '245', color: '#FFC107' },
 ]
-const cols: ColDef[] = [
-  { headerName: 'No', valueGetter: 'node.rowIndex + 1', width: 50, maxWidth: 50, flex: 0 },
+const cols = withHeaderTooltips([
+  { headerName: 'No', valueGetter: 'node.rowIndex + 1', flex: 0.4, minWidth: 45 },
   { headerName: '인스턴스명', field: 'name', flex: 2 },
   { headerName: 'DB엔진', field: 'engine', width: 110 },
   { headerName: '용량', field: 'storage', width: 80 },
   { headerName: 'CPU 사용률', field: 'cpu', width: 90 },
   { headerName: '메모리', field: 'memory', width: 90 },
   { headerName: '상태', field: 'status', width: 70 },
-]
+])
 const rows = ref([
   { name: 'timescale-realtime-01', engine: 'TimescaleDB', storage: '1.2 TB', cpu: '45%', memory: '62%', status: '정상' },
   { name: 'redis-cache-01', engine: 'Redis 7.2', storage: '8 GB', cpu: '15%', memory: '48%', status: '정상' },
   { name: 'clickhouse-analytics', engine: 'ClickHouse', storage: '2.0 TB', cpu: '35%', memory: '55%', status: '정상' },
+  { name: 'gpu-db-cluster-01', engine: 'GPU DB', storage: '512 GB', cpu: '62%', memory: '78%', status: '정상' },
+  { name: 'gpu-db-cluster-02', engine: 'GPU DB', storage: '512 GB', cpu: '55%', memory: '71%', status: '정상' },
 ])
 
 onMounted(async () => {

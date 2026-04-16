@@ -3,7 +3,7 @@
     <div class="page-header"><h2>등급 분류</h2><p class="page-desc">데이터 보안 등급 분류 기준 및 등급별 정책을 관리합니다.</p></div>
     <div class="table-section">
       <div class="table-header"><span class="table-count">등급 체계 <strong>{{ rows.length }}</strong>건</span><div class="table-actions"><button class="btn-excel" title="엑셀 다운로드" @click="exportGridToExcel(cols, rows, '등급_관리')"><FileExcelOutlined /></button></div></div>
-      <div class="ag-grid-wrapper"><AgGridVue class="ag-theme-alpine" :rowData="rows" :columnDefs="cols" :defaultColDef="defCol" :pagination="true" :paginationPageSize="10" domLayout="autoHeight" @row-clicked="onRowClick" /></div>
+      <div class="ag-grid-wrapper"><AgGridVue :tooltipShowDelay="0" class="ag-theme-alpine" :rowData="rows" :columnDefs="cols" :defaultColDef="defCol" :pagination="true" :paginationPageSize="10" domLayout="autoHeight" @row-clicked="onRowClick" /></div>
     </div>
 
     <!-- 등급 상세 팝업 -->
@@ -28,9 +28,10 @@
 </template>
 <script setup lang="ts">
 import { exportGridToExcel } from '../../../utils/exportExcel'
+import { defaultColDef as baseDefaultColDef, withHeaderTooltips } from '../../../utils/gridHelper'
 import { ref, onMounted } from 'vue'
 import { AgGridVue } from 'ag-grid-vue3'
-import { AllCommunityModule, ModuleRegistry, type ColDef } from 'ag-grid-community'
+import { AllCommunityModule, ModuleRegistry } from 'ag-grid-community'
 import { FileExcelOutlined, EditOutlined } from '@ant-design/icons-vue'
 import AdminModal from '../../../components/AdminModal.vue'
 import { gradeApi } from '../../../api/standard.api'
@@ -38,15 +39,15 @@ ModuleRegistry.registerModules([AllCommunityModule])
 
 const showDetail = ref(false)
 const detailData = ref<any>({})
-const defCol = { sortable: true, resizable: true, flex: 1, minWidth: 80 }
-const cols: ColDef[] = [
+const defCol = { ...baseDefaultColDef }
+const cols = withHeaderTooltips([
   { headerName: '등급', field: 'grade', width: 90 },
   { headerName: '등급명', field: 'name', width: 110 },
   { headerName: '설명', field: 'desc', flex: 2 },
   { headerName: '접근 대상', field: 'access', flex: 1 },
   { headerName: '데이터셋 수', field: 'count', width: 100 },
   { headerName: '비식별화', field: 'anonymize', width: 90 },
-]
+])
 const rows = ref([
   { grade: 'L1', name: '비공개', desc: '개인정보, 보안데이터 등 접근 제한', access: '시스템 관리자만', count: 45, anonymize: '필수' },
   { grade: 'L2', name: '내부공유', desc: 'K-water 내부 직원 공유 데이터', access: '내부 사용자 이상', count: 320, anonymize: '선택' },

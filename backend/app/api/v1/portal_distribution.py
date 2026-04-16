@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.auth import CurrentUser, get_current_user
 from app.database import get_db
 from app.schemas.common import APIResponse, PageRequest, PageResponse
-from app.schemas.portal import DistDatasetListItem, DistDownloadItem, DistRequestCreate, DistRequestResponse
+from app.schemas.portal import ApiKeyResponse, DistDatasetListItem, DistDownloadItem, DistRequestCreate, DistRequestResponse
 from app.services import portal_distribution_service
 
 router = APIRouter()
@@ -66,3 +66,52 @@ async def download_file(
         raise HTTPException(status_code=404, detail="데이터셋을 찾을 수 없습니다")
     return Response(content=content, media_type=media_type,
                     headers={"Content-Disposition": f"attachment; filename={filename}"})
+
+
+# ── API 키 관리 ──
+
+@router.post("/requests/{request_id}/api-key", response_model=APIResponse[ApiKeyResponse])
+async def issue_api_key(
+    request_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+):
+    try:
+        result = await portal_distribution_service.issue_api_key(db, user.id, request_id)
+        return APIResponse(data=result, message="API 키가 발급되었습니다")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/requests/{request_id}/api-key", response_model=APIResponse[ApiKeyResponse])
+async def get_api_key_info(
+    request_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+):
+    result = await portal_distribution_service.get_api_key_info(db, user.id, request_id)
+    if not result:
+        raise HTTPException(status_code=404, detail="API 키를 찾을 수 없습니다")
+    return APIResponse(data=result)
+
+
+@router.post("/requests/{request_id}/api-key/regenerate", response_model=APIResponse[ApiKeyResponse])
+async def regenerate_api_key(
+    request_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+):
+    result = await portal_distribution_service.regenerate_api_key(db, user.id, request_id)
+    return APIResponse(data=result, message="API 키가 재발급되었습니다")
+
+
+@router.delete("/requests/{request_id}/api-key", response_model=APIResponse)
+async def revoke_api_key(
+    request_id: UUID, api_key_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+):
+    ok = await portal_distribution_service.revoke_api_key(db, user.id, api_key_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="API 키를 찾을 수 없습니다")
+    return APIResponse(data={"revoked": True}, message="API 키가 폐기되었습니다")

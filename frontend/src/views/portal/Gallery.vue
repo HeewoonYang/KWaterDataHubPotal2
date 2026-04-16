@@ -3,7 +3,7 @@
     <!-- 브레드크럼 -->
     <nav class="breadcrumb">
       <router-link to="/portal">대시보드</router-link>
-      <span class="separator">/</span>
+      <span class="separator">&gt;</span>
       <span class="current">시각화 갤러리 설정</span>
     </nav>
 
@@ -45,7 +45,14 @@
               <span class="canvas-card-name">{{ chart.chart_name || chart.name }}</span>
               <button class="btn-remove" @click="removeFromCanvas(i)" title="제거"><CloseOutlined /></button>
             </div>
-            <div class="canvas-chart-preview" v-html="chart.previewSvg || chart.svg || ''"></div>
+            <div class="canvas-chart-preview" :class="{ 'map-preview': chart.chart_type === 'MAP' }">
+              <template v-if="chart.chart_type === 'MAP'">
+                <div class="map-preview-placeholder"><EnvironmentOutlined class="map-icon" /><span>GIS 지도</span></div>
+              </template>
+              <template v-else>
+                <div v-html="chart.previewSvg || chart.svg || ''"></div>
+              </template>
+            </div>
           </div>
         </div>
       </div>
@@ -66,6 +73,7 @@
             <option value="pie">원</option>
             <option value="scatter">산점도</option>
             <option value="area">영역</option>
+            <option value="MAP">GIS 지도</option>
           </select>
           <input v-model="searchText" placeholder="차트 검색..." />
         </div>
@@ -73,10 +81,21 @@
       <div class="lib-grid">
         <div v-for="chart in availableCharts" :key="chart.id" class="chart-lib-card" @dblclick="addToCanvas(chart)">
           <div class="lib-card-top">
-            <BarChartOutlined class="chart-icon-antd" :style="{ color: typeColor[chart.chart_type] || '#1677ff' }" />
+            <EnvironmentOutlined v-if="chart.chart_type === 'MAP'" class="chart-icon-antd" :style="{ color: '#28A745' }" />
+            <BarChartOutlined v-else class="chart-icon-antd" :style="{ color: typeColor[chart.chart_type] || '#1677ff' }" />
             <span class="chart-name">{{ chart.chart_name }}</span>
           </div>
-          <div class="chart-preview" v-html="buildPreviewSvg(chart)"></div>
+          <div class="chart-preview" :class="{ 'map-preview': chart.chart_type === 'MAP' }">
+            <template v-if="chart.chart_type === 'MAP'">
+              <div class="map-preview-placeholder">
+                <EnvironmentOutlined class="map-icon" />
+                <span>GIS 지도</span>
+              </div>
+            </template>
+            <template v-else>
+              <div v-html="buildPreviewSvg(chart)"></div>
+            </template>
+          </div>
           <div class="chart-meta-row">
             <span class="chart-type-tag" :style="{ background: (typeColor[chart.chart_type] || '#666') + '15', color: typeColor[chart.chart_type] || '#666' }">
               {{ typeLabel[chart.chart_type] || chart.chart_type }}
@@ -99,7 +118,7 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import {
   AppstoreOutlined, BarChartOutlined, DatabaseOutlined,
-  DeleteOutlined, CloseOutlined, SaveOutlined, CheckCircleOutlined,
+  DeleteOutlined, CloseOutlined, SaveOutlined, CheckCircleOutlined, EnvironmentOutlined,
 } from '@ant-design/icons-vue'
 import { visualizationApi, widgetApi } from '../../api/portal.api'
 
@@ -109,8 +128,8 @@ const canvasCharts = ref<any[]>([])
 const allCharts = ref<any[]>([])
 const showSavedMsg = ref(false)
 
-const typeLabel: Record<string, string> = { bar: '막대', line: '선', pie: '원', scatter: '산점도', area: '영역' }
-const typeColor: Record<string, string> = { bar: '#fa8c16', line: '#1677ff', pie: '#722ed1', scatter: '#eb2f96', area: '#13c2c2' }
+const typeLabel: Record<string, string> = { bar: '막대', line: '선', pie: '원', scatter: '산점도', area: '영역', MAP: 'GIS 지도' }
+const typeColor: Record<string, string> = { bar: '#fa8c16', line: '#1677ff', pie: '#722ed1', scatter: '#eb2f96', area: '#13c2c2', MAP: '#28A745' }
 const previewColors = ['#0066CC', '#28A745', '#FFC107', '#DC3545', '#9b59b6', '#17a2b8']
 
 // ── API에서 갤러리 콘텐츠 차트 목록 로딩 ──
@@ -185,12 +204,13 @@ async function saveGalleryLayout() {
 
     // 새 갤러리 차트를 대시보드 레이아웃에 추가
     canvasCharts.value.forEach(c => {
+      const isMap = c.chart_type === 'MAP'
       items.push({
         id: `gallery-${c.id}`,
         type: 'gallery',
         chartId: String(c.id),
-        colSpan: 2,
-        rowSpan: 1,
+        colSpan: isMap ? 2 : 2,
+        rowSpan: isMap ? 2 : 1,
       })
     })
 
@@ -410,6 +430,12 @@ onMounted(async () => {
 .add-hint {
   font-size: 10px; color: $primary; text-align: center; margin-top: 6px;
   opacity: 0; transition: opacity 0.2s;
+}
+.map-preview-placeholder {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 4px; color: #28A745; padding: 8px;
+  .map-icon { font-size: 24px; }
+  span { font-size: 10px; font-weight: 600; }
 }
 .lib-empty {
   grid-column: 1 / -1; text-align: center; padding: 40px; color: $text-muted; font-size: $font-size-sm;

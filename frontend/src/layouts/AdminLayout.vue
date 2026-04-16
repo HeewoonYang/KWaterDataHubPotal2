@@ -71,10 +71,49 @@
 
       <!-- Content Area -->
       <main class="admin-content">
+        <!-- Tab Bar -->
+        <div class="admin-tabs" v-if="tabStore.tabs.length > 0">
+          <button
+            v-show="canScrollLeft"
+            class="tabs-nav-btn tabs-nav-left"
+            title="왼쪽으로 스크롤"
+            @click="scrollTabs(-1)"
+          ><LeftOutlined /></button>
+          <div
+            class="tabs-scroll"
+            ref="tabsScrollRef"
+            :class="{ 'fade-left': canScrollLeft, 'fade-right': canScrollRight }"
+            @wheel="onTabsWheel"
+          >
+            <div
+              v-for="tab in tabStore.tabs"
+              :key="tab.path"
+              class="tab-item"
+              :class="{ active: tab.path === route.path }"
+              :ref="(el) => setTabRef(tab.path, el)"
+              @click="onTabClick(tab.path)"
+            >
+              <span class="tab-label">{{ tab.label }}</span>
+              <span
+                v-if="tab.closable"
+                class="tab-close"
+                @click.stop="onTabClose(tab.path)"
+              ><CloseOutlined /></span>
+            </div>
+          </div>
+          <button
+            v-show="canScrollRight"
+            class="tabs-nav-btn tabs-nav-right"
+            title="오른쪽으로 스크롤"
+            @click="scrollTabs(1)"
+          ><RightOutlined /></button>
+          <div class="tabs-actions">
+            <button class="tabs-action-btn" title="다른 탭 모두 닫기" @click="onCloseOthers"><MinusOutlined /></button>
+          </div>
+        </div>
+
         <!-- Breadcrumb -->
         <div class="breadcrumb">
-          <span>홈</span>
-          <span class="sep">></span>
           <span v-for="(crumb, i) in breadcrumbs" :key="i">
             <span :class="{ current: i === breadcrumbs.length - 1 }">{{ crumb }}</span>
             <span class="sep" v-if="i < breadcrumbs.length - 1">></span>
@@ -88,7 +127,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, reactive } from 'vue'
+import { ref, computed, reactive, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   SettingOutlined,
@@ -96,13 +135,18 @@ import {
   MenuUnfoldOutlined,
   DownOutlined,
   RightOutlined,
+  LeftOutlined,
   LogoutOutlined,
+  CloseOutlined,
+  MinusOutlined,
 } from '@ant-design/icons-vue'
 import { useAuthStore } from '../stores/auth'
+import { useAdminTabsStore } from '../stores/adminTabs'
 
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const tabStore = useAdminTabsStore()
 const sidebarCollapsed = ref(false)
 
 const gnbMenus = [
@@ -110,6 +154,7 @@ const gnbMenus = [
   { label: '사용자관리', path: '/admin/user', key: 'user' },
   { label: '데이터표준', path: '/admin/standard', key: 'standard' },
   { label: '데이터수집', path: '/admin/collection', key: 'collection' },
+  { label: '온톨로지', path: '/admin/ontology', key: 'ontology' },
   { label: '데이터정제', path: '/admin/cleansing', key: 'cleansing' },
   { label: '데이터저장', path: '/admin/storage', key: 'storage' },
   { label: '데이터유통', path: '/admin/distribution', key: 'distribution' },
@@ -127,8 +172,14 @@ function handleLogout() {
 }
 
 function goBackToPortal() {
-  // 관리자 포털 팝업 닫기 (사용자포털 팝업은 별도로 열려 있음)
-  window.close()
+  if (window.opener && !window.opener.closed) {
+    // 팝업으로 열린 경우: 원래 사용자 포탈 창 포커스 후 팝업 닫기
+    window.opener.focus()
+    window.close()
+  } else {
+    // 직접 접속(/admin URL 직접 진입)인 경우: 같은 창에서 사용자 포탈로 이동
+    router.push('/portal/dashboard')
+  }
 }
 
 interface MenuItem {
@@ -148,8 +199,8 @@ const sidebarConfig: Record<string, MenuGroup[]> = {
       label: '인프라관리', expanded: true,
       children: [
         { label: '에코시스템 총괄', path: '/admin/system' },
-        { label: '클라우드 구성', path: '/admin/system/cloud' },
         { label: 'DR/백업 관리', path: '/admin/system/dr' },
+        { label: '복구·PIT 대시보드', path: '/admin/system/dr-dashboard' },
         { label: '패키지 검증', path: '/admin/system/package' },
       ]
     },
@@ -166,8 +217,9 @@ const sidebarConfig: Record<string, MenuGroup[]> = {
     {
       label: '계정관리', expanded: true,
       children: [
-        { label: '내부 사용자', path: '/admin/user' },
+        { label: '조직/사용자 관리', path: '/admin/user' },
         { label: '외부 사용자', path: '/admin/user/external' },
+        { label: '조직사용자 동기화', path: '/admin/user/org-sync' },
         { label: '사용자 공통', path: '/admin/user/common' },
       ]
     },
@@ -199,6 +251,7 @@ const sidebarConfig: Record<string, MenuGroup[]> = {
     {
       label: '품질관리', expanded: false,
       children: [
+        { label: '품질 대시보드', path: '/admin/standard/quality-dashboard' },
         { label: '분류체계 연동', path: '/admin/standard/quality-link' },
         { label: '품질 검증', path: '/admin/standard/quality-check' },
       ]
@@ -212,10 +265,24 @@ const sidebarConfig: Record<string, MenuGroup[]> = {
   ]),
   '/admin/collection': reactive([
     {
-      label: '수집관리', expanded: true,
+      label: '수집현황', expanded: true,
       children: [
-        { label: '수집 전략', path: '/admin/collection' },
+        { label: '수집 대시보드', path: '/admin/collection' },
+        { label: '도메인 수집현황', path: '/admin/collection/domain-detail' },
+        { label: '수집 전략', path: '/admin/collection/strategy' },
         { label: '데이터셋 구성', path: '/admin/collection/dataset' },
+      ]
+    },
+    {
+      label: '데이터 품질/프로파일', expanded: false,
+      children: [
+        { label: '프로파일링/태깅', path: '/admin/collection/profiling' },
+        { label: '품질 게이트웨이', path: '/admin/collection/quality-gate' },
+      ]
+    },
+    {
+      label: '수집 도구', expanded: false,
+      children: [
         { label: '수집 UI', path: '/admin/collection/ui' },
         { label: '경량 수집', path: '/admin/collection/lightweight' },
       ]
@@ -224,7 +291,9 @@ const sidebarConfig: Record<string, MenuGroup[]> = {
       label: 'DB복제', expanded: false,
       children: [
         { label: '원본DB 설정', path: '/admin/collection/db-source' },
+        { label: 'DB 탐색기', path: '/admin/collection/db-explorer' },
         { label: '마이그레이션', path: '/admin/collection/migration' },
+        { label: '마이그레이션 결과·로그', path: '/admin/collection/migration-results' },
       ]
     },
     {
@@ -232,6 +301,12 @@ const sidebarConfig: Record<string, MenuGroup[]> = {
       children: [
         { label: '기관 연계', path: '/admin/collection/external' },
         { label: '공간정보 수집', path: '/admin/collection/spatial' },
+      ]
+    },
+    {
+      label: '비정형데이터', expanded: false,
+      children: [
+        { label: '비정형데이터관리', path: '/admin/collection/unstructured-data' },
       ]
     },
   ]),
@@ -260,6 +335,22 @@ const sidebarConfig: Record<string, MenuGroup[]> = {
         { label: '비정형 저장소', path: '/admin/storage/unstructured' },
       ]
     },
+    {
+      label: '데이터패브릭', expanded: false,
+      children: [
+        { label: '패브릭 현황', path: '/admin/storage/fabric' },
+        { label: 'LLM/T2SQL 설정', path: '/admin/storage/llm-config' },
+        { label: 'GPU DB 데이터셋', path: '/admin/storage/gpu-datasets' },
+        { label: 'MindsDB 연동', path: '/admin/storage/mindsdb' },
+      ]
+    },
+    {
+      label: '분석DB', expanded: false,
+      children: [
+        { label: '분석DB 데이터셋', path: '/admin/storage/analysis-datasets' },
+        { label: '라이프사이클 정책', path: '/admin/storage/lifecycle-policy' },
+      ]
+    },
   ]),
   '/admin/distribution': reactive([
     {
@@ -280,9 +371,26 @@ const sidebarConfig: Record<string, MenuGroup[]> = {
       ]
     },
     {
-      label: '통계', expanded: false,
+      label: '통계/활용', expanded: false,
       children: [
         { label: '유통 통계', path: '/admin/distribution/stats' },
+        { label: '활용도 대시보드', path: '/admin/distribution/usage' },
+      ]
+    },
+  ]),
+  '/admin/ontology': reactive([
+    {
+      label: '온톨로지 관리', expanded: true,
+      children: [
+        { label: '지식그래프/온톨로지', path: '/admin/ontology' },
+        { label: '온톨로지 관리', path: '/admin/ontology/manage' },
+      ]
+    },
+    {
+      label: '메타 증강', expanded: false,
+      children: [
+        { label: '온톨로지 메타 증강', path: '/admin/ontology/augmentation' },
+        { label: '비정형 문서 인제스트', path: '/admin/ontology/doc-ingestion' },
       ]
     },
   ]),
@@ -297,6 +405,15 @@ const sidebarConfig: Record<string, MenuGroup[]> = {
       label: 'AI모니터링', expanded: false,
       children: [
         { label: 'AI 현황', path: '/admin/operation/ai' },
+      ]
+    },
+    {
+      label: '연계/모니터링', expanded: false,
+      children: [
+        { label: '연계 서비스', path: '/admin/operation/integration' },
+        { label: 'App 모니터링', path: '/admin/operation/apm' },
+        { label: '보안 모니터링', path: '/admin/operation/security' },
+        { label: 'Data Event', path: '/admin/operation/events' },
       ]
     },
     {
@@ -337,6 +454,154 @@ function isGnbActive(path: string): boolean {
 function toggleGroup(group: MenuGroup) {
   group.expanded = !group.expanded
 }
+
+// ===== 탭 네비게이션 =====
+function getPageLabel(path: string): string {
+  // sidebarConfig에서 라벨 찾기
+  for (const key of Object.keys(sidebarConfig)) {
+    for (const group of sidebarConfig[key]) {
+      for (const item of group.children) {
+        if (item.path === path) return item.label
+      }
+    }
+  }
+  // GNB에서 찾기 (대메뉴 기본 페이지)
+  const gnb = gnbMenus.find(m => m.path === path)
+  if (gnb) return gnb.label
+  return '관리'
+}
+
+function onTabClick(path: string) {
+  if (path !== route.path) {
+    router.push(path)
+  }
+}
+
+function onTabClose(path: string) {
+  const nextPath = tabStore.removeTab(path)
+  if (nextPath && nextPath !== route.path) {
+    router.push(nextPath)
+  }
+}
+
+function onCloseOthers() {
+  const nextPath = tabStore.removeOthers(route.path)
+  if (nextPath !== route.path) {
+    router.push(nextPath)
+  }
+}
+
+// 경로 변경 시 탭 자동 추가
+watch(() => route.path, (newPath) => {
+  if (newPath.startsWith('/admin')) {
+    const label = getPageLabel(newPath)
+    tabStore.addTab(newPath, label)
+  }
+}, { immediate: false })
+
+// 초기화: 스토어 복원 + 현재 경로 탭 추가
+onMounted(() => {
+  tabStore.init()
+  if (route.path.startsWith('/admin')) {
+    const label = getPageLabel(route.path)
+    tabStore.addTab(route.path, label)
+  }
+  nextTick(() => {
+    attachScrollObserver()
+    updateScrollState()
+    scrollActiveTabIntoView()
+  })
+})
+
+// ===== 탭바 가로 스크롤 처리 =====
+const tabsScrollRef = ref<HTMLElement | null>(null)
+const canScrollLeft = ref(false)
+const canScrollRight = ref(false)
+const tabRefs = new Map<string, HTMLElement>()
+let resizeObs: ResizeObserver | null = null
+
+function setTabRef(path: string, el: any) {
+  if (el) tabRefs.set(path, el as HTMLElement)
+  else tabRefs.delete(path)
+}
+
+function updateScrollState() {
+  const el = tabsScrollRef.value
+  if (!el) {
+    canScrollLeft.value = false
+    canScrollRight.value = false
+    return
+  }
+  const { scrollLeft, scrollWidth, clientWidth } = el
+  canScrollLeft.value = scrollLeft > 1
+  canScrollRight.value = scrollLeft + clientWidth < scrollWidth - 1
+}
+
+function scrollTabs(dir: number) {
+  const el = tabsScrollRef.value
+  if (!el) return
+  el.scrollBy({ left: dir * Math.max(160, el.clientWidth * 0.6), behavior: 'smooth' })
+}
+
+function onTabsWheel(e: WheelEvent) {
+  // 세로 휠을 가로 스크롤로 변환 (trackpad 가로 휠은 deltaX 로 그대로 처리)
+  const el = tabsScrollRef.value
+  if (!el) return
+  if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+    el.scrollLeft += e.deltaY
+    e.preventDefault()
+  }
+}
+
+function scrollActiveTabIntoView() {
+  const el = tabsScrollRef.value
+  if (!el) return
+  const tab = tabRefs.get(route.path)
+  if (!tab) return
+  const tabLeft = tab.offsetLeft
+  const tabRight = tabLeft + tab.offsetWidth
+  const viewLeft = el.scrollLeft
+  const viewRight = viewLeft + el.clientWidth
+  if (tabLeft < viewLeft) {
+    el.scrollTo({ left: Math.max(0, tabLeft - 12), behavior: 'smooth' })
+  } else if (tabRight > viewRight) {
+    el.scrollTo({ left: tabRight - el.clientWidth + 12, behavior: 'smooth' })
+  }
+}
+
+function attachScrollObserver() {
+  const el = tabsScrollRef.value
+  if (!el) return
+  el.addEventListener('scroll', updateScrollState, { passive: true })
+  if (typeof ResizeObserver !== 'undefined') {
+    resizeObs = new ResizeObserver(() => updateScrollState())
+    resizeObs.observe(el)
+  }
+  window.addEventListener('resize', updateScrollState)
+}
+
+onBeforeUnmount(() => {
+  const el = tabsScrollRef.value
+  if (el) el.removeEventListener('scroll', updateScrollState)
+  resizeObs?.disconnect()
+  window.removeEventListener('resize', updateScrollState)
+})
+
+// 탭 개수 변경 시 스크롤 상태 재계산
+watch(() => tabStore.tabs.length, () => {
+  nextTick(() => {
+    updateScrollState()
+    scrollActiveTabIntoView()
+  })
+})
+
+// 라우트 변경 시 활성 탭을 가시 영역으로
+watch(() => route.path, () => {
+  nextTick(() => {
+    updateScrollState()
+    scrollActiveTabIntoView()
+  })
+})
 </script>
 
 <style lang="scss" scoped>
@@ -346,6 +611,7 @@ function toggleGroup(group: MenuGroup) {
   display: flex;
   flex-direction: column;
   height: 100vh;
+  overflow: hidden;
 }
 
 // ===== Header =====
@@ -540,6 +806,158 @@ function toggleGroup(group: MenuGroup) {
     background: $sidebar-item-active;
     color: $primary;
     font-weight: 600;
+  }
+}
+
+// ===== Tabs =====
+.admin-tabs {
+  display: flex;
+  align-items: center;
+  background: #fff;
+  border-bottom: 1px solid $border-color;
+  margin: (-$spacing-lg) (-$spacing-xl) $spacing-md;
+  padding: 0 $spacing-md;
+  height: 36px;
+  flex-shrink: 0;
+  position: sticky;
+  top: -#{$spacing-lg};
+  z-index: 10;
+}
+
+.tabs-scroll {
+  display: flex;
+  align-items: center;
+  flex: 1 1 auto;
+  // flex 자식의 기본 min-width:auto 가 콘텐츠 크기로 결정돼 overflow-x가 동작하지 않는 문제 회피
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-behavior: smooth;
+  gap: 2px;
+  position: relative;
+  // 좌우 끝 fade 마스크 — 가려진 탭이 더 있음을 시각적으로 암시
+  &.fade-left {
+    mask-image: linear-gradient(90deg, transparent 0, #000 24px);
+    -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 24px);
+  }
+  &.fade-right {
+    mask-image: linear-gradient(90deg, #000 calc(100% - 24px), transparent);
+    -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 24px), transparent);
+  }
+  &.fade-left.fade-right {
+    mask-image: linear-gradient(90deg, transparent 0, #000 24px, #000 calc(100% - 24px), transparent);
+    -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 24px, #000 calc(100% - 24px), transparent);
+  }
+
+  &::-webkit-scrollbar {
+    height: 6px;
+  }
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: #c7c7c7;
+    border-radius: 3px;
+
+    &:hover { background: #a8a8a8; }
+  }
+}
+
+.tabs-nav-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 26px;
+  flex-shrink: 0;
+  font-size: 11px;
+  color: $text-secondary;
+  background: #fafafa;
+  border: 1px solid $border-color;
+  border-radius: $radius-sm;
+  cursor: pointer;
+  transition: all $transition-fast;
+
+  &:hover {
+    color: $primary;
+    border-color: $primary;
+    background: #fff;
+  }
+
+  &.tabs-nav-left { margin-right: 4px; }
+  &.tabs-nav-right { margin-left: 4px; }
+}
+
+.tab-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  font-size: $font-size-xs;
+  color: $text-secondary;
+  cursor: pointer;
+  white-space: nowrap;
+  border: 1px solid transparent;
+  border-bottom: 2px solid transparent;
+  border-radius: $radius-sm $radius-sm 0 0;
+  transition: all $transition-fast;
+  position: relative;
+
+  &:hover {
+    color: $primary;
+    background: rgba($primary, 0.04);
+  }
+
+  &.active {
+    color: $primary;
+    font-weight: 600;
+    background: #fff;
+    border-color: $border-color $border-color transparent;
+    border-bottom-color: $primary;
+  }
+}
+
+.tab-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  transition: all $transition-fast;
+  color: #bbb;
+
+  &:hover {
+    background: #fde8e8;
+    color: #DC3545;
+  }
+}
+
+.tabs-actions {
+  display: flex;
+  align-items: center;
+  margin-left: 4px;
+  flex-shrink: 0;
+}
+
+.tabs-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: $radius-sm;
+  font-size: 10px;
+  color: $text-muted;
+  background: none;
+  border: 1px solid $border-color;
+  cursor: pointer;
+  transition: all $transition-fast;
+
+  &:hover {
+    color: $primary;
+    border-color: $primary;
   }
 }
 

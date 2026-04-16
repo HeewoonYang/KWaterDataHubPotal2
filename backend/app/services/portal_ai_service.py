@@ -8,7 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.catalog import CatalogDataset
 from app.models.operation import OperationAiQueryLog
-from app.schemas.portal import AiDatasetResult, AiSearchResponse
+from app.models.portal import PortalVisualizationChart
+from app.schemas.portal import AiChartResult, AiDatasetResult, AiSearchResponse
 
 # 불용어
 STOPWORDS = {"은", "는", "이", "가", "을", "를", "의", "에", "에서", "으로", "로", "와", "과", "도", "만", "부터", "까지", "보다", "에게", "한테", "께", "라", "다", "요", "것", "수", "등", "및", "또는", "그", "이런", "저런", "어떤", "모든", "각", "좀", "잘", "더", "덜", "매우", "아주", "너무", "정말", "진짜", "약", "대략", "최근", "관련", "데이터", "정보", "현황", "목록", "조회", "확인", "알려줘", "보여줘", "찾아줘"}
@@ -76,7 +77,32 @@ async def search(db: AsyncSession, query: str, user_id=None) -> AiSearchResponse
             response_time_ms=50, queried_at=datetime.now(),
         ))
 
-    return AiSearchResponse(answer=answer, datasets=datasets)
+    # 관련 차트 조회
+    charts: list[AiChartResult] = []
+    if datasets:
+        dataset_ids = [d.id for d in datasets]
+        chart_rows = (await db.execute(
+            select(PortalVisualizationChart, CatalogDataset.dataset_name)
+            .outerjoin(CatalogDataset, PortalVisualizationChart.dataset_id == CatalogDataset.id)
+            .where(
+                PortalVisualizationChart.dataset_id.in_(dataset_ids),
+                PortalVisualizationChart.is_deleted == False,
+            )
+            .order_by(PortalVisualizationChart.created_at.desc())
+            .limit(5)
+        )).all()
+        charts = [
+            AiChartResult(
+                id=c[0].id, chart_name=c[0].chart_name, chart_type=c[0].chart_type,
+                dataset_id=c[0].dataset_id, dataset_name=c[1], created_at=c[0].created_at,
+            )
+            for c in chart_rows
+        ]
+        if charts:
+            chart_names = ", ".join(c.chart_name for c in charts[:3])
+            answer += f"\n\n관련 시각화 차트 {len(charts)}건도 있습니다: {chart_names}"
+
+    return AiSearchResponse(answer=answer, datasets=datasets, charts=charts)
 
 
 async def get_suggestions() -> list[str]:

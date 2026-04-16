@@ -6,7 +6,7 @@
     </div>
     <div class="table-section">
       <div class="table-header"><span class="table-count">API 목록 <strong>{{ rows.length }}</strong>건</span><div class="table-actions"><button class="btn btn-primary btn-sm" @click="showRegister = true"><PlusOutlined /> API 등록</button><button class="btn-excel" title="엑셀 다운로드" @click="exportGridToExcel(cols, rows, '표준_API')"><FileExcelOutlined /></button></div></div>
-      <div class="ag-grid-wrapper"><AgGridVue class="ag-theme-alpine" :rowData="rows" :columnDefs="cols" :defaultColDef="defCol" :pagination="true" :paginationPageSize="10" domLayout="autoHeight" @row-clicked="onRowClick" /></div>
+      <div class="ag-grid-wrapper"><AgGridVue :tooltipShowDelay="0" class="ag-theme-alpine" :rowData="rows" :columnDefs="cols" :defaultColDef="defCol" :pagination="true" :paginationPageSize="10" domLayout="autoHeight" @row-clicked="onRowClick" /></div>
     </div>
 
     <!-- API 상세 팝업 -->
@@ -20,6 +20,22 @@
           <div class="modal-info-item"><span class="info-label">버전</span><span class="info-value">{{ detailData.version }}</span></div>
           <div class="modal-info-item"><span class="info-label">일 호출</span><span class="info-value">{{ detailData.calls }}</span></div>
           <div class="modal-info-item"><span class="info-label">상태</span><span class="info-value"><span class="badge badge-success">{{ detailData.status }}</span></span></div>
+        </div>
+      </div>
+      <div class="modal-section">
+        <div class="modal-section-title">트래픽 제어 (Rate Limiting)</div>
+        <div class="modal-info-grid">
+          <div class="modal-info-item"><span class="info-label">초당 호출 제한</span><span class="info-value">100 req/s</span></div>
+          <div class="modal-info-item"><span class="info-label">일일 Quota</span><span class="info-value">50,000 calls/day</span></div>
+          <div class="modal-info-item"><span class="info-label">인증 방식</span><span class="info-value">API Key + JWT</span></div>
+          <div class="modal-info-item"><span class="info-label">평균 응답시간</span><span class="info-value">45ms</span></div>
+        </div>
+      </div>
+      <div class="modal-section">
+        <div class="modal-section-title">비식별화 필터</div>
+        <div class="modal-info-grid">
+          <div class="modal-info-item"><span class="info-label">자동 마스킹</span><span class="info-value" style="color:#28A745">활성</span></div>
+          <div class="modal-info-item"><span class="info-label">적용 정책</span><span class="info-value">주민번호 마스킹, 성명 SHA-256</span></div>
         </div>
       </div>
       <template #footer>
@@ -40,7 +56,7 @@
         <div class="modal-form-group"><label>설명</label><textarea rows="2" placeholder="API 설명"></textarea></div>
       </div>
       <template #footer>
-        <button class="btn btn-primary" @click="showRegister = false"><SaveOutlined /> 등록</button>
+        <button class="btn btn-primary" @click="handleRegister"><SaveOutlined /> 등록</button>
         <button class="btn btn-outline" @click="showRegister = false">취소</button>
       </template>
     </AdminModal>
@@ -48,10 +64,13 @@
 </template>
 <script setup lang="ts">
 import { exportGridToExcel } from '../../../utils/exportExcel'
+import { defaultColDef as baseDefaultColDef, withHeaderTooltips } from '../../../utils/gridHelper'
+
 import { ref, onMounted, type Component } from 'vue'
 import { AgGridVue } from 'ag-grid-vue3'
-import { AllCommunityModule, ModuleRegistry, type ColDef } from 'ag-grid-community'
+import { AllCommunityModule, ModuleRegistry } from 'ag-grid-community'
 import { ApiOutlined, CheckCircleOutlined, DashboardOutlined, ThunderboltOutlined, PlusOutlined, FileExcelOutlined, EditOutlined, SaveOutlined } from '@ant-design/icons-vue'
+import { message } from '../../../utils/message'
 import AdminModal from '../../../components/AdminModal.vue'
 import { adminDistributionApi } from '../../../api/admin.api'
 ModuleRegistry.registerModules([AllCommunityModule])
@@ -59,22 +78,22 @@ ModuleRegistry.registerModules([AllCommunityModule])
 const showDetail = ref(false), showRegister = ref(false)
 const detailData = ref<any>({})
 
-const defCol = { sortable: true, resizable: true, flex: 1, minWidth: 80 }
+const defCol = { ...baseDefaultColDef }
 const stats: { icon: Component; label: string; value: string; color: string }[] = [
   { icon: ApiOutlined, label: '등록 API', value: '32', color: '#0066CC' },
   { icon: CheckCircleOutlined, label: '활성', value: '28', color: '#28A745' },
   { icon: DashboardOutlined, label: '평균 응답', value: '125ms', color: '#9b59b6' },
   { icon: ThunderboltOutlined, label: '일 호출량', value: '1.45M', color: '#FFC107' },
 ]
-const cols: ColDef[] = [
-  { headerName: 'No', valueGetter: 'node.rowIndex + 1', width: 50, maxWidth: 50, flex: 0 },
+const cols = withHeaderTooltips([
+  { headerName: 'No', valueGetter: 'node.rowIndex + 1', flex: 0.4, minWidth: 45 },
   { headerName: 'API명', field: 'name', flex: 2 },
   { headerName: 'Method', field: 'method', width: 75 },
   { headerName: 'Endpoint', field: 'endpoint', flex: 2 },
   { headerName: '버전', field: 'version', width: 65 },
   { headerName: '일 호출', field: 'calls', width: 80 },
   { headerName: '상태', field: 'status', width: 70 },
-]
+])
 const rows = ref([
   { name: '데이터셋 목록 조회', method: 'GET', endpoint: '/api/v1/datasets', version: 'v1', calls: '45,200', status: '활성' },
   { name: '데이터셋 상세 조회', method: 'GET', endpoint: '/api/v1/datasets/{id}', version: 'v1', calls: '32,100', status: '활성' },
@@ -82,6 +101,7 @@ const rows = ref([
   { name: '수질 데이터 조회', method: 'GET', endpoint: '/api/v1/water-quality', version: 'v1', calls: '85,300', status: '활성' },
   { name: '데이터 다운로드', method: 'POST', endpoint: '/api/v1/downloads', version: 'v1', calls: '2,340', status: '활성' },
 ])
+
 
 onMounted(async () => {
   try {
@@ -107,6 +127,7 @@ function onRowClick(event: any) {
   detailData.value = event.data
   showDetail.value = true
 }
+function handleRegister() { message.success("등록되었습니다."); showRegister.value = false }
 </script>
 <style lang="scss" scoped>
 @use '../admin-common.scss';

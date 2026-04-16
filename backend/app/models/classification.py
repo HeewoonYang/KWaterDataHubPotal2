@@ -20,6 +20,12 @@ class DataClassification(Base):
     sort_order = Column(Integer, default=0, comment="정렬순서")
     status = Column(String(20), default="ACTIVE", comment="상태")
 
+    # 표준사전 연동 (REQ-DHUB-004-002-001)
+    std_word_id = Column(Integer, ForeignKey("std_word.id", ondelete="SET NULL"), comment="연동단어ID")
+    std_term_id = Column(Integer, ForeignKey("std_term.id", ondelete="SET NULL"), comment="연동용어ID")
+    std_domain_id = Column(Integer, ForeignKey("std_domain.id", ondelete="SET NULL"), comment="연동도메인ID")
+    std_code_id = Column(Integer, ForeignKey("std_code.id", ondelete="SET NULL"), comment="연동코드ID")
+
     created_by = Column(Integer, comment="생성자ID")
     created_at = Column(DateTime, default=datetime.now, comment="생성일시")
     updated_by = Column(Integer, comment="수정자ID")
@@ -29,6 +35,10 @@ class DataClassification(Base):
     __table_args__ = (
         Index("ix_data_class_parent", "parent_id"),
         Index("ix_data_class_code", "code"),
+        Index("ix_data_class_std_word", "std_word_id"),
+        Index("ix_data_class_std_term", "std_term_id"),
+        Index("ix_data_class_std_domain", "std_domain_id"),
+        Index("ix_data_class_std_code", "std_code_id"),
         Index("ix_data_classification_not_deleted", "is_deleted", postgresql_where=text("is_deleted = false")),
         {"comment": "분류체계"},
     )

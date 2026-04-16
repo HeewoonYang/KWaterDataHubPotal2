@@ -91,12 +91,40 @@ export const qualityApi = {
   listResults: (params?: PageRequest) => apiClient.get<PageResponse<QualityCheckResult>>('/quality/results', { params }),
   getResult: (id: number) => apiClient.get<APIResponse<QualityCheckResult>>(`/quality/results/${id}`),
   listCompliance: () => apiClient.get<APIResponse<ComplianceResult[]>>('/quality/compliance'),
+  complianceSummary: () => apiClient.get<APIResponse<any>>('/quality/compliance/summary'),
   runComplianceCheck: () => apiClient.post<APIResponse>('/quality/compliance/check'),
+
+  // 단일 대상 검증
+  checkCatalog: (catalogDatasetId: string) =>
+    apiClient.post<APIResponse>(`/quality/catalog/${catalogDatasetId}/check`),
+  checkDistribution: (distributionDatasetId: string) =>
+    apiClient.post<APIResponse>(`/quality/distribution/${distributionDatasetId}/check`),
+  checkDistributionAll: () => apiClient.post<APIResponse>('/quality/distribution/check-all'),
+
+  // 대시보드
+  dashboardSummary: () => apiClient.get<APIResponse<any>>('/quality/dashboard/summary'),
+  dashboardTrend: (days = 30) =>
+    apiClient.get<APIResponse<Array<{ day: string; avg_score: number; check_count: number }>>>('/quality/dashboard/trend', { params: { days } }),
+  dashboardRuleFailures: (limit = 10) =>
+    apiClient.get<APIResponse<Array<{ rule_id: number | null; rule_name: string; failure_count: number; avg_score: number }>>>('/quality/dashboard/rule-failures', { params: { limit } }),
+
+  // AI 피드백
+  listAiFeedback: (params?: { status?: string; target_system?: string; page?: number; page_size?: number }) =>
+    apiClient.get<PageResponse<any>>('/quality/ai-feedback', { params }),
+  retryAiFeedback: (id: string) => apiClient.post<APIResponse>(`/quality/ai-feedback/${id}/retry`),
+  dispatchAiFeedbackNow: () => apiClient.post<APIResponse>('/quality/ai-feedback/dispatch-now'),
+
+  // 스케줄 CRUD
+  listSchedules: () => apiClient.get<APIResponse<any[]>>('/quality/schedules'),
+  createSchedule: (data: any) => apiClient.post<APIResponse<any>>('/quality/schedules', data),
+  updateSchedule: (id: number, data: any) => apiClient.put<APIResponse<any>>(`/quality/schedules/${id}`, data),
+  deleteSchedule: (id: number) => apiClient.delete<APIResponse>(`/quality/schedules/${id}`),
 }
 
 // ── 메타모델 ──
 export const modelApi = {
-  list: () => apiClient.get<APIResponse<MetaModel[]>>('/models'),
+  list: (params?: { classification_id?: number; model_type?: string }) =>
+    apiClient.get<APIResponse<MetaModel[]>>('/models', { params }),
   get: (id: number) => apiClient.get<APIResponse<MetaModel>>(`/models/${id}`),
   create: (data: Partial<MetaModel>) => apiClient.post<APIResponse<MetaModel>>('/models', data),
   update: (id: number, data: Partial<MetaModel>) => apiClient.put<APIResponse<MetaModel>>(`/models/${id}`, data),

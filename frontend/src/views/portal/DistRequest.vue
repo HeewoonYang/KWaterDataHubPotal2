@@ -1,8 +1,8 @@
 <template>
   <div class="request-page">
     <nav class="breadcrumb">
-      <router-link to="/portal">대시보드</router-link>
-      <span class="separator">/</span>
+      <router-link to="/portal/distribution">데이터유통</router-link>
+      <span class="separator">&gt;</span>
       <span class="current">데이터 신청</span>
     </nav>
 
@@ -24,11 +24,15 @@
           <div class="form-group"><label>이용 기간 (시작)</label><input type="date" value="2026-03-25" /></div>
           <div class="form-group"><label>이용 기간 (종료)</label><input type="date" value="2026-06-25" /></div>
         </div>
-        <div class="form-group"><label>이용 포맷</label>
+        <div class="form-group"><label>제공 형태</label>
           <div class="format-options">
-            <label class="radio-label"><input type="radio" name="format" value="csv" checked /> CSV</label>
-            <label class="radio-label"><input type="radio" name="format" value="json" /> JSON</label>
-            <label class="radio-label"><input type="radio" name="format" value="api" /> API</label>
+            <label class="radio-label"><input type="radio" name="format" value="csv" checked /> CSV 다운로드</label>
+            <label class="radio-label"><input type="radio" name="format" value="json" /> JSON 다운로드</label>
+            <label class="radio-label"><input type="radio" name="format" value="api" /> REST API</label>
+            <label class="radio-label"><input type="radio" name="format" value="sandbox" /> 분석환경(Sandbox) 연계</label>
+          </div>
+          <div class="sandbox-info" style="margin-top:8px;padding:8px 12px;background:#f0f7ff;border-radius:6px;font-size:11px;color:#0066CC;display:flex;align-items:center;gap:6px;">
+            <span style="font-size:14px;">💡</span> 분석환경 연계 선택 시 승인 후 개인 샌드박스(분석DB)에 데이터 뷰가 자동 생성됩니다.
           </div>
         </div>
         <div class="form-actions"><button class="btn btn-primary" @click="showConfirm = true"><SendOutlined /> 신청</button><button class="btn btn-outline">취소</button></div>
@@ -40,7 +44,7 @@
       <div class="table-section">
         <div class="table-header"><span class="table-count">전체 <strong>{{ history.length }}</strong>건</span><div class="table-actions"><button class="btn-excel" title="엑셀 다운로드" @click="exportGridToExcel(cols, history, '유통_신청_이력')"><FileExcelOutlined /></button></div></div>
         <div class="ag-grid-wrapper">
-          <AgGridVue class="ag-theme-alpine" :rowData="history" :columnDefs="cols" :defaultColDef="{ sortable: true, resizable: true, flex: 1, minWidth: 80 }" :pagination="true" :paginationPageSize="10" domLayout="autoHeight" @row-clicked="onRowClick" />
+          <AgGridVue :tooltipShowDelay="0" class="ag-theme-alpine" :rowData="history" :columnDefs="cols" :defaultColDef="defCol" :pagination="true" :paginationPageSize="10" domLayout="autoHeight" @row-clicked="onRowClick" />
         </div>
       </div>
     </div>
@@ -77,10 +81,12 @@
 </template>
 <script setup lang="ts">
 import { exportGridToExcel } from '../../utils/exportExcel'
+import { defaultColDef as baseDefaultColDef, withHeaderTooltips } from '../../utils/gridHelper'
 import { ref, onMounted } from 'vue'
 import { AgGridVue } from 'ag-grid-vue3'
-import { AllCommunityModule, ModuleRegistry, type ColDef } from 'ag-grid-community'
+import { AllCommunityModule, ModuleRegistry } from 'ag-grid-community'
 import { FormOutlined, HistoryOutlined, SendOutlined, FileExcelOutlined, CheckCircleOutlined } from '@ant-design/icons-vue'
+import { message } from '../../utils/message'
 import AdminModal from '../../components/AdminModal.vue'
 import { distributionApi } from '../../api/portal.api'
 ModuleRegistry.registerModules([AllCommunityModule])
@@ -98,14 +104,15 @@ const requestForm = ref({
   format: 'csv',
 })
 
-const cols: ColDef[] = [
-  { headerName: 'No', valueGetter: 'node.rowIndex + 1', width: 50, maxWidth: 50, flex: 0 },
+const defCol = { ...baseDefaultColDef }
+const cols = withHeaderTooltips([
+  { headerName: 'No', valueGetter: 'node.rowIndex + 1', flex: 0.4, minWidth: 45 },
   { headerName: '데이터셋', field: 'dataset', flex: 2, minWidth: 180 },
-  { headerName: '신청일', field: 'requestDate', width: 110, maxWidth: 110, flex: 0 },
+  { headerName: '신청일', field: 'requestDate', flex: 0.8, minWidth: 100 },
   { headerName: '이용기간', field: 'period', flex: 1, minWidth: 150 },
-  { headerName: '포맷', field: 'format', width: 65, maxWidth: 65, flex: 0 },
-  { headerName: '상태', field: 'status', width: 75, maxWidth: 75, flex: 0 },
-]
+  { headerName: '포맷', field: 'format', flex: 0.5, minWidth: 60 },
+  { headerName: '상태', field: 'status', flex: 0.6, minWidth: 65 },
+])
 
 // Fallback mock data
 const defaultHistory = [
@@ -136,6 +143,8 @@ async function fetchHistory() {
 }
 
 async function submitRequest() {
+  if (!requestForm.value.dataset) return message.warning('데이터셋을 선택해주세요.')
+  if (!requestForm.value.reason?.trim()) return message.warning('신청 사유를 입력해주세요.')
   try {
     await distributionApi.createRequest({
       dataset: requestForm.value.dataset,
@@ -145,10 +154,12 @@ async function submitRequest() {
       format: requestForm.value.format,
     })
     showConfirm.value = false
+    message.success('데이터 신청이 접수되었습니다.')
     await fetchHistory()
     tab.value = 'history'
   } catch (e) {
     console.error('데이터 신청 실패:', e)
+    message.error('신청에 실패했습니다. 다시 시도해주세요.')
     showConfirm.value = false
   }
 }

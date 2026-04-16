@@ -3,7 +3,7 @@
     <!-- Breadcrumb -->
     <nav class="breadcrumb">
       <router-link to="/portal">대시보드</router-link>
-      <span class="separator">/</span>
+      <span class="separator">&gt;</span>
       <span class="current">갤러리 콘텐츠 관리</span>
     </nav>
 
@@ -64,6 +64,7 @@
             <option value="gauge">Gauge</option>
             <option value="heatmap">Heatmap</option>
             <option value="table">Table</option>
+            <option value="MAP">GIS 지도</option>
           </select>
         </div>
         <div class="filter-group search-group">
@@ -277,14 +278,14 @@ const filteredData = computed(() => {
 const defaultColDef = { sortable: true, resizable: true, flex: 1, minWidth: 80 }
 
 const columnDefs: ColDef[] = [
-  { headerName: 'No', valueGetter: 'node.rowIndex + 1', width: 55, maxWidth: 55, flex: 0 },
+  { headerName: 'No', valueGetter: 'node.rowIndex + 1', width: 55, resizable: false },
   { headerName: '차트명', field: 'chart_name', flex: 1.5, minWidth: 160,
     cellRenderer: (params: any) => {
       const name = params.value || params.data?.name || ''
       return `<span style="font-weight:600">${name}</span>`
     }
   },
-  { headerName: '차트유형', field: 'chart_type', width: 90, maxWidth: 100, flex: 0,
+  { headerName: '차트유형', field: 'chart_type', width: 110,
     cellRenderer: (params: any) => {
       const label = typeLabels[params.value] || params.value || ''
       return `<span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;background:#f0f2f5;color:#555">${label}</span>`
@@ -293,22 +294,22 @@ const columnDefs: ColDef[] = [
   { headerName: '데이터소스', flex: 1.2, minWidth: 140,
     valueGetter: (params: any) => params.data?.chart_config?.dataset_name || '-'
   },
-  { headerName: 'X축', width: 100, maxWidth: 120, flex: 0,
+  { headerName: 'X축', width: 120,
     valueGetter: (params: any) => params.data?.chart_config?.x_axis_kr || '-'
   },
-  { headerName: 'Y축', width: 130, maxWidth: 160, flex: 0,
+  { headerName: 'Y축', width: 150,
     valueGetter: (params: any) => (params.data?.chart_config?.y_axes_kr || []).join(', ') || '-'
   },
-  { headerName: '작성자', width: 90, maxWidth: 100, flex: 0,
+  { headerName: '작성자', width: 110,
     valueGetter: (params: any) => params.data?.owner_name || params.data?.author || '-'
   },
-  { headerName: '생성일', width: 100, maxWidth: 110, flex: 0,
+  { headerName: '생성일', width: 120,
     valueGetter: (params: any) => formatDate(params.data?.created_at)
   },
-  { headerName: '조회수', width: 75, maxWidth: 80, flex: 0,
+  { headerName: '조회수', width: 90,
     valueGetter: (params: any) => params.data?.view_count || 0
   },
-  { headerName: '관리', width: 130, maxWidth: 140, flex: 0, sortable: false,
+  { headerName: '관리', width: 150, sortable: false,
     cellRenderer: () => {
       return `<span class="grid-actions">
         <button class="grid-btn grid-btn-detail" data-action="detail">상세</button>

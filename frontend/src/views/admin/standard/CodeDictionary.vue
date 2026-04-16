@@ -27,7 +27,7 @@
         </div>
       </div>
       <div class="ag-grid-wrapper">
-        <AgGridVue class="ag-theme-alpine" :rowData="rowData" :columnDefs="cols" :defaultColDef="{ sortable: true, resizable: true, flex: 1, minWidth: 80 }" :pagination="true" :paginationPageSize="50" domLayout="autoHeight" @row-clicked="onRowClick" />
+        <AgGridVue :tooltipShowDelay="0" class="ag-theme-alpine" :rowData="rowData" :columnDefs="cols" :defaultColDef="defCol" :pagination="true" :paginationPageSize="50" domLayout="autoHeight" @row-clicked="onRowClick" />
       </div>
       <div class="pagination-bar">
         <button class="btn btn-secondary" :disabled="page <= 1" @click="page--; loadData()">이전</button>
@@ -56,7 +56,8 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, type Component } from 'vue'
 import { AgGridVue } from 'ag-grid-vue3'
-import { AllCommunityModule, ModuleRegistry, type ColDef } from 'ag-grid-community'
+import { defaultColDef as baseDefaultColDef, withHeaderTooltips } from '../../../utils/gridHelper'
+import { AllCommunityModule, ModuleRegistry } from 'ag-grid-community'
 import { TagsOutlined, ClusterOutlined, ApartmentOutlined, BarcodeOutlined, SearchOutlined, PlusOutlined, FileExcelOutlined } from '@ant-design/icons-vue'
 import AdminModal from '@/components/AdminModal.vue'
 import { codeApi, importExportApi } from '@/api/standard.api'
@@ -83,17 +84,18 @@ const stats = ref<{ icon: Component; label: string; value: string; color: string
   { icon: BarcodeOutlined, label: '시스템', value: '0', color: '#FFC107' },
 ])
 
-const cols: ColDef[] = [
-  { headerName: 'No', valueGetter: 'node.rowIndex + 1', width: 50, maxWidth: 60, flex: 0 },
-  { headerName: '코드그룹', field: 'code_group', width: 90, maxWidth: 100, flex: 0 },
+const defCol = { ...baseDefaultColDef }
+const cols = withHeaderTooltips([
+  { headerName: 'No', valueGetter: 'node.rowIndex + 1', flex: 0.4, minWidth: 45 },
+  { headerName: '코드그룹', field: 'code_group', flex: 0.7, minWidth: 80 },
   { headerName: '코드그룹명', field: 'code_group_name', flex: 1.5, minWidth: 130 },
   { headerName: '코드ID', field: 'code_id', flex: 1, minWidth: 100 },
-  { headerName: '코드값', field: 'code_value', width: 80, maxWidth: 100, flex: 0 },
+  { headerName: '코드값', field: 'code_value', flex: 0.6, minWidth: 70 },
   { headerName: '코드값명', field: 'code_value_name', flex: 1.5, minWidth: 130 },
-  { headerName: '시스템', field: 'system_name', width: 80, maxWidth: 100, flex: 0 },
-  { headerName: '부모코드', field: 'parent_code_name', width: 100, maxWidth: 120, flex: 0 },
-  { headerName: '정렬', field: 'sort_order', width: 55, maxWidth: 55, flex: 0 },
-]
+  { headerName: '시스템', field: 'system_name', flex: 0.6, minWidth: 70 },
+  { headerName: '부모코드', field: 'parent_code_name', flex: 0.7, minWidth: 90 },
+  { headerName: '정렬', field: 'sort_order', flex: 0.4, minWidth: 50 },
+])
 
 async function loadData() {
   try {

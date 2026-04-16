@@ -3,7 +3,7 @@
     <div class="page-header"><h2>MCP 연동</h2><p class="page-desc">MCP(Model Context Protocol) 서버 연동 및 AI 데이터 유통을 관리합니다.</p></div>
     <div class="table-section">
       <div class="table-header"><span class="table-count">MCP 서버 <strong>{{ rows.length }}</strong>건</span><div class="table-actions"><button class="btn btn-primary btn-sm" @click="showRegister = true"><PlusOutlined /> 서버 등록</button><button class="btn-excel" title="엑셀 다운로드" @click="exportGridToExcel(cols, rows, 'MCP_서버')"><FileExcelOutlined /></button></div></div>
-      <div class="ag-grid-wrapper"><AgGridVue class="ag-theme-alpine" :rowData="rows" :columnDefs="cols" :defaultColDef="defCol" :pagination="true" :paginationPageSize="10" domLayout="autoHeight" @row-clicked="onRowClick" /></div>
+      <div class="ag-grid-wrapper"><AgGridVue :tooltipShowDelay="0" class="ag-theme-alpine" :rowData="rows" :columnDefs="cols" :defaultColDef="defCol" :pagination="true" :paginationPageSize="10" domLayout="autoHeight" @row-clicked="onRowClick" /></div>
     </div>
 
     <!-- MCP 서버 상세 팝업 -->
@@ -20,6 +20,7 @@
       </div>
       <template #footer>
         <button class="btn btn-primary" @click="showDetail = false"><EditOutlined /> 수정</button>
+        <button class="btn btn-danger" @click="handleDelete"><DeleteOutlined /> 삭제</button>
         <button class="btn btn-outline" @click="showDetail = false">닫기</button>
       </template>
     </AdminModal>
@@ -27,12 +28,12 @@
     <!-- 서버 등록 팝업 -->
     <AdminModal :visible="showRegister" title="서버 등록" size="md" @close="showRegister = false">
       <div class="modal-form">
-        <div class="modal-form-group"><label class="required">서버명</label><input placeholder="MCP 서버명 입력" /></div>
-        <div class="modal-form-group"><label class="required">Endpoint</label><input placeholder="http://mcp.example.com" /></div>
-        <div class="modal-form-group"><label>설명</label><textarea rows="2" placeholder="서버 설명"></textarea></div>
+        <div class="modal-form-group"><label class="required">서버명</label><input v-model="regForm.mcp_name" placeholder="MCP 서버명 입력" /></div>
+        <div class="modal-form-group"><label class="required">Endpoint</label><input v-model="regForm.server_url" placeholder="http://mcp.example.com" /></div>
+        <div class="modal-form-group"><label>설명</label><textarea v-model="regForm.description" rows="2" placeholder="서버 설명"></textarea></div>
       </div>
       <template #footer>
-        <button class="btn btn-primary" @click="showRegister = false"><SaveOutlined /> 등록</button>
+        <button class="btn btn-primary" @click="handleRegister"><SaveOutlined /> 등록</button>
         <button class="btn btn-outline" @click="showRegister = false">취소</button>
       </template>
     </AdminModal>
@@ -40,30 +41,35 @@
 </template>
 <script setup lang="ts">
 import { exportGridToExcel } from '../../../utils/exportExcel'
-import { ref, onMounted } from 'vue'
+import { defaultColDef as baseDefaultColDef, withHeaderTooltips } from '../../../utils/gridHelper'
+
+import { ref, reactive, onMounted } from 'vue'
 import { AgGridVue } from 'ag-grid-vue3'
-import { AllCommunityModule, ModuleRegistry, type ColDef } from 'ag-grid-community'
-import { PlusOutlined, FileExcelOutlined, EditOutlined, SaveOutlined } from '@ant-design/icons-vue'
+import { AllCommunityModule, ModuleRegistry } from 'ag-grid-community'
+import { PlusOutlined, FileExcelOutlined, EditOutlined, SaveOutlined, DeleteOutlined } from '@ant-design/icons-vue'
+import { message } from '../../../utils/message'
 import AdminModal from '../../../components/AdminModal.vue'
 import { adminDistributionApi } from '../../../api/admin.api'
 ModuleRegistry.registerModules([AllCommunityModule])
 
 const showDetail = ref(false), showRegister = ref(false)
+const regForm = reactive({ mcp_name: '', server_url: '', description: '' })
 const detailData = ref<any>({})
-const defCol = { sortable: true, resizable: true, flex: 1, minWidth: 80 }
-const cols: ColDef[] = [
-  { headerName: 'No', valueGetter: 'node.rowIndex + 1', width: 50, maxWidth: 50, flex: 0 },
+const defCol = { ...baseDefaultColDef }
+const cols = withHeaderTooltips([
+  { headerName: 'No', valueGetter: 'node.rowIndex + 1', flex: 0.4, minWidth: 45 },
   { headerName: '서버명', field: 'name', flex: 2 },
   { headerName: 'Endpoint', field: 'endpoint', flex: 2 },
   { headerName: 'Tool 수', field: 'tools', width: 75 },
   { headerName: '연결 상태', field: 'status', width: 90 },
   { headerName: '최근 호출', field: 'lastCall', width: 120 },
-]
+])
 const rows = ref([
   { name: '데이터허브 MCP Server', endpoint: 'http://mcp.datahub.kwater.or.kr', tools: 12, status: '연결됨', lastCall: '2026-03-25 09:30' },
   { name: '수질분석 MCP Server', endpoint: 'http://mcp-wq.datahub.kwater.or.kr', tools: 5, status: '연결됨', lastCall: '2026-03-25 09:15' },
   { name: 'GIS MCP Server', endpoint: 'http://mcp-gis.datahub.kwater.or.kr', tools: 3, status: '점검 중', lastCall: '2026-03-24 18:00' },
 ])
+
 
 onMounted(async () => {
   try {
@@ -88,6 +94,8 @@ function onRowClick(event: any) {
   detailData.value = event.data
   showDetail.value = true
 }
+function handleRegister() { message.success("등록되었습니다."); showRegister.value = false }
+function handleDelete() { message.success("삭제되었습니다."); showDetail.value = false }
 </script>
 <style lang="scss" scoped>@use '../admin-common.scss';
 :deep(.ag-row) { cursor: pointer; }

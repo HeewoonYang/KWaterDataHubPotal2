@@ -89,10 +89,18 @@ class MetaModelResponse(BaseModel):
 
 
 @router.get("", response_model=APIResponse[list[MetaModelResponse]])
-async def list_models(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(
-        select(MetaModel).where(MetaModel.is_deleted == False).order_by(MetaModel.id.desc())
-    )
+async def list_models(
+    classification_id: int | None = None,
+    model_type: str | None = None,
+    db: AsyncSession = Depends(get_db),
+):
+    stmt = select(MetaModel).where(MetaModel.is_deleted == False)
+    if classification_id is not None:
+        stmt = stmt.where(MetaModel.classification_id == classification_id)
+    if model_type:
+        stmt = stmt.where(MetaModel.model_type == model_type)
+    stmt = stmt.order_by(MetaModel.id.desc())
+    result = await db.execute(stmt)
     items = result.scalars().all()
     return APIResponse(data=items)
 

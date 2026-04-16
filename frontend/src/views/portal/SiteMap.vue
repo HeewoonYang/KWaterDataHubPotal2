@@ -1,8 +1,6 @@
 <template>
   <div class="sitemap-page">
     <nav class="breadcrumb">
-      <router-link to="/portal">대시보드</router-link>
-      <span class="separator">/</span>
       <span class="current">사이트맵</span>
     </nav>
 
@@ -21,7 +19,7 @@
 </template>
 <script setup lang="ts">
 import { type Component } from 'vue'
-import { HomeOutlined, DatabaseOutlined, BarChartOutlined, SwapOutlined, RobotOutlined, UserOutlined } from '@ant-design/icons-vue'
+import { HomeOutlined, DatabaseOutlined, DashboardOutlined, BarChartOutlined, SwapOutlined, RobotOutlined, UserOutlined } from '@ant-design/icons-vue'
 import { useAuthStore } from '../../stores/auth'
 const authStore = useAuthStore()
 const allSitemap: { title: string; icon: Component; color: string; roles: string[]; items: { label: string; path: string }[] }[] = [
@@ -35,6 +33,14 @@ const allSitemap: { title: string; icon: Component; color: string; roles: string
   { title: '데이터 카탈로그', icon: DatabaseOutlined, color: '#28A745', roles: ['ADMIN','MANAGER','INTERNAL','EXTERNAL'], items: [
     { label: '카탈로그 탐색', path: '/portal/catalog' },
     { label: '데이터 검색', path: '/portal/catalog/search' },
+    { label: '지식그래프/온톨로지', path: '/portal/catalog/knowledge-graph' },
+    { label: '데이터 리니지', path: '/portal/catalog/lineage' },
+  ]},
+  { title: '실시간 모니터링', icon: DashboardOutlined, color: '#fa8c16', roles: ['ADMIN','MANAGER','INTERNAL','EXTERNAL'], items: [
+    { label: 'RWIS', path: '/portal/monitoring' },
+    { label: 'HDAPS', path: '/portal/monitoring/hdaps' },
+    { label: 'GIOS', path: '/portal/monitoring/gios' },
+    { label: 'Smart Metering', path: '/portal/monitoring/smart-metering' },
   ]},
   { title: '데이터 시각화', icon: BarChartOutlined, color: '#9b59b6', roles: ['ADMIN','MANAGER','INTERNAL'], items: [
     { label: 'D&D 시각화', path: '/portal/visualization' },

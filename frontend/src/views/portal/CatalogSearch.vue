@@ -1,8 +1,8 @@
 <template>
   <div class="catalog-search-page">
     <nav class="breadcrumb">
-      <router-link to="/portal">대시보드</router-link>
-      <span class="separator">/</span>
+      <router-link to="/portal/catalog">데이터카탈로그</router-link>
+      <span class="separator">&gt;</span>
       <span class="current">데이터 검색</span>
     </nav>
 
@@ -45,6 +45,7 @@
             <span><TableOutlined /> {{ r.columns }}개 컬럼</span>
             <span><DatabaseOutlined /> {{ r.rows }}</span>
             <span><ClockCircleOutlined /> {{ r.updated }}</span>
+            <span v-if="r.chartCount" class="r-chart-badge" @click.stop="onResultClick(r); loadRelatedCharts(String(r.id))"><BarChartOutlined /> 차트 {{ r.chartCount }}건</span>
           </div>
           <div class="r-tags">
             <span v-for="tag in r.tags" :key="tag" class="r-tag">{{ tag }}</span>
@@ -78,8 +79,30 @@
           <span v-for="tag in detailData.tags" :key="tag" class="badge badge-info">{{ tag }}</span>
         </div>
       </div>
+      <!-- 관련 시각화 -->
+      <div class="modal-section">
+        <div class="modal-section-title"><BarChartOutlined /> 관련 시각화</div>
+        <div v-if="relatedCharts.length === 0" style="font-size:12px;color:#999;padding:8px 0;">
+          이 데이터셋으로 만든 시각화 차트가 없습니다.
+          <button class="btn btn-sm btn-primary" style="margin-left:8px;" @click="goToNewViz(String(detailData.id))"><PlusOutlined /> 새 시각화 만들기</button>
+        </div>
+        <div v-else style="display:flex;flex-direction:column;gap:8px;">
+          <div v-for="chart in relatedCharts" :key="chart.id" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border:1px solid #e8e8e8;border-radius:8px;background:#fafbfc;">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <BarChartOutlined style="font-size:16px;color:#0066CC;" />
+              <div><div style="font-size:13px;font-weight:600;">{{ chart.chart_name }}</div><div style="font-size:11px;color:#999;">{{ chart.owner_name || '시스템' }} · {{ chart.created_at?.substring(0, 10) }}</div></div>
+            </div>
+            <div style="display:flex;gap:6px;">
+              <button class="btn btn-sm btn-primary" @click="reuseChart(chart)"><EditOutlined /> 기간 재설정</button>
+              <button class="btn btn-sm btn-outline" @click="copyChart(chart)"><CopyOutlined /> 그대로 사용</button>
+            </div>
+          </div>
+          <button class="btn btn-sm btn-outline" style="align-self:center;margin-top:4px;" @click="goToNewViz(String(detailData.id))"><PlusOutlined /> 새 시각화 만들기</button>
+        </div>
+      </div>
       <template #footer>
         <button class="btn btn-primary" @click="showDetail = false">데이터 신청</button>
+        <button class="btn btn-outline" @click="goToNewViz(String(detailData.id))"><BarChartOutlined /> 시각화</button>
         <button class="btn btn-outline" @click="showDetail = false">닫기</button>
       </template>
     </AdminModal>
@@ -88,24 +111,26 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
-import { SearchOutlined, ThunderboltOutlined, UserOutlined, TableOutlined, DatabaseOutlined, ClockCircleOutlined } from '@ant-design/icons-vue'
+import { useRoute, useRouter } from 'vue-router'
+import { SearchOutlined, ThunderboltOutlined, UserOutlined, TableOutlined, DatabaseOutlined, ClockCircleOutlined, BarChartOutlined, EditOutlined, CopyOutlined, PlusOutlined } from '@ant-design/icons-vue'
+import { message } from '../../utils/message'
 import AdminModal from '../../components/AdminModal.vue'
-import { catalogApi } from '../../api/portal.api'
+import { catalogApi, visualizationApi } from '../../api/portal.api'
 
 const route = useRoute()
+const router = useRouter()
 const keyword = ref('')
 const filterType = ref(''), filterGrade = ref(''), filterPeriod = ref(''), sortBy = ref('relevance')
 const showDetail = ref(false)
 const detailData = ref<any>({})
 
 // Fallback mock data
-const defaultResults = [
-  { id: 1, name: '댐 수위 관측 데이터 (실시간)', description: '전국 다목적댐 실시간 수위 관측 데이터. 10분 간격 자동 측정, 수위(m), 유입량, 방류량, 저수율 포함', type: 'db', typeLabel: 'DB', grade: 3, score: 98, owner: '수자원부', columns: 12, rows: '1.2억건', updated: '2026-03-25', tags: ['수위', '댐', '실시간', '관측'] },
-  { id: 2, name: '수질 모니터링 센서 데이터', description: 'IoT 센서 기반 수질 항목별 실시간 측정값. pH, DO, BOD, COD, SS, T-N, T-P 포함', type: 'iot', typeLabel: 'IoT', grade: 2, score: 92, owner: '환경부', columns: 18, rows: '8,500만건', updated: '2026-03-25', tags: ['수질', 'IoT', '센서', '환경'] },
-  { id: 3, name: '상수도 관로 GIS 데이터', description: '전국 상수도 관로 네트워크 공간정보. 관로 위치, 구경, 매설연도, 관종 정보 포함', type: 'gis', typeLabel: 'GIS', grade: 2, score: 85, owner: '수도부', columns: 24, rows: '320만건', updated: '2026-03-24', tags: ['GIS', '관로', '상수도', '공간정보'] },
-  { id: 4, name: '전력 사용량 통계 (월별)', description: 'K-water 전국 사업장별 월간 전력 사용량 집계. 사업장코드, 사용량(kWh), 요금 포함', type: 'csv', typeLabel: 'CSV', grade: 3, score: 78, owner: '경영부', columns: 8, rows: '15,600건', updated: '2026-03-23', tags: ['전력', '통계', '경영'] },
-  { id: 5, name: '강수량 예측 모델 API', description: '기상청 연동 강수량 예측 REST API. 지역별 시간대별 강수 확률 및 예상 강수량 제공', type: 'api', typeLabel: 'API', grade: 3, score: 72, owner: '수자원부', columns: 6, rows: 'API', updated: '2026-03-25', tags: ['기상', 'API', '예측', '강수'] },
+const defaultResults: any[] = [
+  { id: 1, name: '댐 수위 관측 데이터 (실시간)', description: '전국 다목적댐 실시간 수위 관측 데이터. 10분 간격 자동 측정, 수위(m), 유입량, 방류량, 저수율 포함', type: 'db', typeLabel: 'DB', grade: 3, score: 98, owner: '수자원부', columns: 12, rows: '1.2억건', updated: '2026-03-25', tags: ['수위', '댐', '실시간', '관측'], chartCount: 2 },
+  { id: 2, name: '수질 모니터링 센서 데이터', description: 'IoT 센서 기반 수질 항목별 실시간 측정값. pH, DO, BOD, COD, SS, T-N, T-P 포함', type: 'iot', typeLabel: 'IoT', grade: 2, score: 92, owner: '환경부', columns: 18, rows: '8,500만건', updated: '2026-03-25', tags: ['수질', 'IoT', '센서', '환경'], chartCount: 1 },
+  { id: 3, name: '상수도 관로 GIS 데이터', description: '전국 상수도 관로 네트워크 공간정보. 관로 위치, 구경, 매설연도, 관종 정보 포함', type: 'gis', typeLabel: 'GIS', grade: 2, score: 85, owner: '수도부', columns: 24, rows: '320만건', updated: '2026-03-24', tags: ['GIS', '관로', '상수도', '공간정보'], chartCount: 0 },
+  { id: 4, name: '전력 사용량 통계 (월별)', description: 'K-water 전국 사업장별 월간 전력 사용량 집계. 사업장코드, 사용량(kWh), 요금 포함', type: 'csv', typeLabel: 'CSV', grade: 3, score: 78, owner: '경영부', columns: 8, rows: '15,600건', updated: '2026-03-23', tags: ['전력', '통계', '경영'], chartCount: 0 },
+  { id: 5, name: '강수량 예측 모델 API', description: '기상청 연동 강수량 예측 REST API. 지역별 시간대별 강수 확률 및 예상 강수량 제공', type: 'api', typeLabel: 'API', grade: 3, score: 72, owner: '수자원부', columns: 6, rows: 'API', updated: '2026-03-25', tags: ['기상', 'API', '예측', '강수'], chartCount: 0 },
 ]
 
 const results = ref(defaultResults)
@@ -124,9 +149,37 @@ async function onSearch() {
   }
 }
 
+const relatedCharts = ref<any[]>([])
+
+async function loadRelatedCharts(datasetId: string) {
+  relatedCharts.value = []
+  try {
+    const res = await visualizationApi.listCharts({ dataset_id: datasetId, page_size: 10 })
+    if (res.data?.items) relatedCharts.value = res.data.items
+  } catch { /* ignore */ }
+}
+
 function onResultClick(result: any) {
   detailData.value = result
   showDetail.value = true
+  loadRelatedCharts(String(result.id))
+}
+
+async function reuseChart(chart: any) {
+  try {
+    const res = await visualizationApi.cloneChart(String(chart.id))
+    const cloned = res.data?.data
+    if (cloned) { showDetail.value = false; router.push({ path: '/portal/visualization', query: { edit: String(cloned.id) } }) }
+  } catch { message.error('차트 복제에 실패했습니다.') }
+}
+
+async function copyChart(chart: any) {
+  try { await visualizationApi.cloneChart(String(chart.id)); message.success('내 차트로 복사되었습니다.') } catch { message.error('차트 복제에 실패했습니다.') }
+}
+
+function goToNewViz(datasetId: string) {
+  showDetail.value = false
+  router.push({ path: '/portal/visualization', query: { dataset_id: datasetId } })
 }
 
 onMounted(() => {
@@ -170,5 +223,7 @@ onMounted(() => {
 .r-meta { display: flex; gap: $spacing-lg; margin-bottom: $spacing-sm; span { font-size: $font-size-xs; color: $text-muted; display: flex; align-items: center; gap: 4px; } }
 .r-tags { display: flex; gap: $spacing-xs; flex-wrap: wrap; }
 .r-tag { font-size: 10px; padding: 2px 8px; border-radius: 10px; background: $bg-light; color: $text-secondary; }
+.r-chart-badge { cursor: pointer; background: #e3f2fd; color: #1565c0; padding: 2px 8px; border-radius: 10px; font-weight: 600; &:hover { background: #bbdefb; } }
+.btn-sm { padding: 4px 10px; font-size: 11px; }
 @media (max-width: #{$bp-desktop - 1px}) and (min-width: $bp-tablet) { .advanced-filters { flex-direction: column; } }
 </style>

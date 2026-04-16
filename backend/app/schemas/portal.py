@@ -98,8 +98,8 @@ class DistDatasetListItem(BaseModel):
     is_downloadable: bool = True
     allowed_formats: list | None = None
     requires_approval: bool = False
-    view_count: int = 0
-    download_count: int = 0
+    view_count: int | None = 0
+    download_count: int | None = 0
 
     model_config = {"from_attributes": True}
 
@@ -118,6 +118,8 @@ class DistRequestResponse(BaseModel):
     purpose: str | None = None
     status: str
     dataset_ids: list[str] = []
+    dataset_name: str | None = None
+    dataset_name_kr: str | None = None
     created_at: datetime | None = None
     approved_at: datetime | None = None
 
@@ -131,6 +133,23 @@ class DistDownloadItem(BaseModel):
     row_count: int | None = None
     file_size_bytes: int | None = None
     downloaded_at: datetime | None = None
+
+    model_config = {"from_attributes": True}
+
+
+# ── API 키 ──
+class ApiKeyResponse(BaseModel):
+    id: UUID
+    api_key: str | None = None
+    api_key_prefix: str = ""
+    name: str = ""
+    endpoint: str = ""
+    rate_limit_per_min: int = 60
+    expires_at: datetime | None = None
+    issued_at: datetime | None = None
+    last_used_at: datetime | None = None
+    total_calls: int = 0
+    is_active: bool = True
 
     model_config = {"from_attributes": True}
 
@@ -223,6 +242,38 @@ class NotificationSettingsUpdate(BaseModel):
     settings: list[NotificationSettingItem]
 
 
+# ── 리니지 ──
+class LineageNodeResponse(BaseModel):
+    id: UUID
+    dataset_name: str | None = None
+    dataset_name_kr: str | None = None
+    node_type: str = "DATASET"  # DATASET, EXTERNAL, TRANSFORM
+    source_system: str | None = None
+    owner_department: str | None = None
+    data_format: str | None = None
+    row_count: int | None = None
+    quality_score: float | None = None
+    status: str | None = None
+    model_config = {"from_attributes": True}
+
+
+class LineageEdgeResponse(BaseModel):
+    id: UUID
+    upstream_id: str | None = None
+    downstream_id: str | None = None
+    upstream_name: str | None = None
+    downstream_name: str | None = None
+    lineage_type: str | None = None
+    pipeline_name: str | None = None
+    description: str | None = None
+    model_config = {"from_attributes": True}
+
+
+class LineageGraphResponse(BaseModel):
+    nodes: list[LineageNodeResponse] = []
+    edges: list[LineageEdgeResponse] = []
+
+
 # ── AI 검색 ──
 class AiSearchRequest(BaseModel):
     query: str
@@ -236,6 +287,16 @@ class AiDatasetResult(BaseModel):
     relevance: str = "관련"
 
 
+class AiChartResult(BaseModel):
+    id: UUID
+    chart_name: str
+    chart_type: str
+    dataset_id: UUID | None = None
+    dataset_name: str | None = None
+    created_at: datetime | None = None
+
+
 class AiSearchResponse(BaseModel):
     answer: str
     datasets: list[AiDatasetResult] = []
+    charts: list[AiChartResult] = []

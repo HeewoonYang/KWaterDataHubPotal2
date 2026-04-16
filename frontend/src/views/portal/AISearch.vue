@@ -1,8 +1,6 @@
 <template>
   <div class="ai-search-page">
     <nav class="breadcrumb">
-      <router-link to="/portal">대시보드</router-link>
-      <span class="separator">/</span>
       <span class="current">AI검색</span>
     </nav>
 
@@ -35,12 +33,26 @@
           <div class="msg-content">
             <p v-html="msg.text"></p>
             <div v-if="msg.datasets" class="result-cards">
-              <div v-for="ds in msg.datasets" :key="ds.name" class="result-card">
+              <div v-for="ds in msg.datasets" :key="ds.name" class="result-card" @click="goToCatalogSearch(ds.name)">
                 <DatabaseOutlined />
                 <div class="result-info">
                   <span class="result-name">{{ ds.name }}</span>
                   <span class="result-meta">{{ ds.meta }}</span>
                 </div>
+                <button class="result-cart-btn" @click.stop="addToCartFromAI(ds)" title="장바구니 담기"><ShoppingCartOutlined /></button>
+                <button class="result-viz-btn" @click.stop="goToNewViz(ds.id || ds.name)" title="시각화 만들기"><BarChartOutlined /></button>
+              </div>
+            </div>
+            <!-- 관련 차트 -->
+            <div v-if="msg.charts && msg.charts.length" class="chart-cards">
+              <p class="chart-cards-title"><BarChartOutlined /> 관련 시각화 차트</p>
+              <div v-for="chart in msg.charts" :key="chart.id" class="chart-card">
+                <BarChartOutlined class="chart-icon" />
+                <div class="chart-info">
+                  <span class="chart-name">{{ chart.chart_name }}</span>
+                  <span class="chart-meta">{{ chart.dataset_name }} · {{ chart.created_at?.substring(0, 10) }}</span>
+                </div>
+                <button class="result-cart-btn" @click.stop="reuseChartWithEdit(chart)" title="기간 재설정하여 재사용"><EditOutlined /></button>
               </div>
             </div>
           </div>
@@ -65,18 +77,44 @@ import {
   UserOutlined,
   DatabaseOutlined,
   SendOutlined,
+  ShoppingCartOutlined,
+  BarChartOutlined,
+  EditOutlined,
 } from '@ant-design/icons-vue'
-import { aiApi } from '../../api/portal.api'
+import { useRouter } from 'vue-router'
+import { message } from '../../utils/message'
+import { aiApi, visualizationApi } from '../../api/portal.api'
+import { useCartStore } from '../../stores/cart'
 
+const router = useRouter()
+const cartStore = useCartStore()
 const inputText = ref('')
 const chatContainer = ref<HTMLElement>()
 let msgId = 0
+
+function goToCatalogSearch(name: string) {
+  router.push({ path: '/portal/catalog/search', query: { keyword: name } })
+}
+function addToCartFromAI(ds: any) {
+  cartStore.addItem({ id: ds.id || ds.name, dataset_name: ds.name, data_format: ds.format || 'DB' })
+}
+function goToNewViz(datasetId: string) {
+  router.push({ path: '/portal/visualization', query: { dataset_id: datasetId } })
+}
+async function reuseChartWithEdit(chart: any) {
+  try {
+    const res = await visualizationApi.cloneChart(String(chart.id))
+    const cloned = res.data?.data
+    if (cloned) router.push({ path: '/portal/visualization', query: { edit: String(cloned.id) } })
+  } catch { message.error('차트 복제에 실패했습니다.') }
+}
 
 interface ChatMessage {
   id: number
   role: 'user' | 'ai'
   text: string
-  datasets?: { name: string; meta: string }[]
+  datasets?: { name: string; meta: string; id?: string }[]
+  charts?: { id: string; chart_name: string; chart_type: string; dataset_name?: string; created_at?: string }[]
 }
 
 const messages = ref<ChatMessage[]>([])
@@ -118,6 +156,7 @@ async function sendMessage() {
       role: 'ai',
       text: data?.text || data?.answer || `"${userMsg}"에 대한 검색 결과입니다.`,
       datasets: data?.datasets || undefined,
+      charts: data?.charts || undefined,
     }
     messages.value.push(aiResponse)
   } catch (e) {
@@ -206,13 +245,28 @@ function generateFallbackResponse(query: string): ChatMessage {
 
 .result-cards { display: flex; flex-direction: column; gap: $spacing-sm; margin-top: $spacing-md; }
 .result-card {
+  cursor: pointer;
+  &:hover { border-color: $primary; }
+  .result-cart-btn { background: none; border: 1px solid #ddd; border-radius: 4px; padding: 2px 6px; cursor: pointer; color: #999; font-size: 12px; margin-left: auto; &:hover { color: $primary; border-color: $primary; } }
+
   display: flex; align-items: center; gap: $spacing-sm; padding: $spacing-sm $spacing-md; background: $white; border: 1px solid $border-color; border-radius: $radius-md; cursor: pointer;
   &:hover { border-color: $primary; }
   :deep(.anticon) { font-size: 20px; color: $primary; }
 }
-.result-info { display: flex; flex-direction: column; }
+.result-info { display: flex; flex-direction: column; flex: 1; }
 .result-name { font-size: $font-size-sm; font-weight: 500; }
 .result-meta { font-size: $font-size-xs; color: $text-muted; }
+.result-viz-btn { background: none; border: 1px solid #ddd; border-radius: 4px; padding: 2px 6px; cursor: pointer; color: #999; font-size: 12px; &:hover { color: #0066CC; border-color: #0066CC; } }
+
+.chart-cards { display: flex; flex-direction: column; gap: $spacing-xs; margin-top: $spacing-sm; }
+.chart-cards-title { font-size: 12px; font-weight: 600; color: #0066CC; margin-bottom: 4px; display: flex; align-items: center; gap: 4px; }
+.chart-card {
+  display: flex; align-items: center; gap: $spacing-sm; padding: $spacing-sm $spacing-md; background: #f0f7ff; border: 1px solid #bbdefb; border-radius: $radius-md;
+  .chart-icon { font-size: 16px; color: #1565c0; }
+}
+.chart-info { display: flex; flex-direction: column; flex: 1; }
+.chart-name { font-size: $font-size-sm; font-weight: 600; color: #1a1a1a; }
+.chart-meta { font-size: 11px; color: #999; }
 
 .chat-input {
   display: flex; gap: $spacing-sm; padding: $spacing-md $spacing-lg; border-top: 1px solid $border-color; background: $bg-light;
