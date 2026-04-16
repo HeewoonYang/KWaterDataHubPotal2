@@ -1,0 +1,64 @@
+---
+# Alembic 스키마 마이그레이션 Job
+# - 배포 전 수동 실행: kubectl apply -f k8s/migration-job.yaml
+# - 또는 Helm/ArgoCD pre-install/pre-upgrade hook 으로 자동화
+# - backoffLimit: 3 → 실패 시 재시도
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: datahub-migration
+  namespace: datahub
+  annotations:
+    # ArgoCD Sync Wave: DB 보다 먼저, 애플리케이션보다 먼저 실행
+    argocd.argoproj.io/sync-wave: "-5"
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 3600    # 1시간 후 Job 리소스 자동 정리
+  template:
+    metadata:
+      labels:
+        app: datahub-migration
+    spec:
+      restartPolicy: OnFailure
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        fsGroup: 1001
+      containers:
+        - name: alembic
+          image: registry.kwater.or.kr/datahub/backend:v0.1.0
+          imagePullPolicy: IfNotPresent
+          command:
+            - sh
+            - -c
+            - |
+              set -e
+              echo "Waiting for postgres..."
+              until python -c "import asyncio,asyncpg,os; \
+                  asyncio.run(asyncpg.connect(os.environ['DATABASE_URL_SYNC'].replace('+psycopg','')).close())" 2>/dev/null; do
+                sleep 2
+              done
+              echo "Running alembic upgrade head..."
+              alembic upgrade head
+          envFrom:
+            - configMapRef:
+                name: datahub-config
+          env:
+            - name: JWT_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: datahub-secret
+                  key: JWT_SECRET_KEY
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi

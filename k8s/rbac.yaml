@@ -1,0 +1,19 @@
+---
+# 애플리케이션 전용 ServiceAccount (kube-apiserver 호출 최소 권한)
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: datahub-app
+  namespace: datahub
+automountServiceAccountToken: false
+---
+# 마이그레이션 Job 전용 SA (별도 분리)
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: datahub-migration
+  namespace: datahub
+automountServiceAccountToken: false
+---
+# 현재 포털은 K8s API 를 직접 호출하지 않으므로 RoleBinding 은 비워둔다.
+# 추후 in-cluster 리소스 조회/조작이 필요해지면 여기에 최소 권한 Role 을 선언한다.

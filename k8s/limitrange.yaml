@@ -1,0 +1,35 @@
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: datahub-default-limits
+  namespace: datahub
+spec:
+  limits:
+    - type: Container
+      default:
+        cpu: "1"
+        memory: 1Gi
+      defaultRequest:
+        cpu: 100m
+        memory: 128Mi
+      max:
+        cpu: "4"
+        memory: 4Gi
+      min:
+        cpu: 50m
+        memory: 64Mi
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: datahub-quota
+  namespace: datahub
+spec:
+  hard:
+    requests.cpu: "8"
+    requests.memory: 16Gi
+    limits.cpu: "32"
+    limits.memory: 64Gi
+    pods: "40"
+    persistentvolumeclaims: "10"

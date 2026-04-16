@@ -1,0 +1,129 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: celery-worker
+  namespace: datahub
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app: celery-worker
+  template:
+    metadata:
+      labels:
+        app: celery-worker
+    spec:
+      terminationGracePeriodSeconds: 60
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        fsGroup: 1001
+      containers:
+        - name: celery-worker
+          image: registry.kwater.or.kr/datahub/backend:v0.1.0
+          imagePullPolicy: IfNotPresent
+          command:
+            - celery
+            - -A
+            - app.tasks
+            - worker
+            - --loglevel=info
+            - --concurrency=4
+            - --without-gossip
+            - --without-mingle
+          envFrom:
+            - configMapRef:
+                name: datahub-config
+          env:
+            - name: JWT_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: datahub-secret
+                  key: JWT_SECRET_KEY
+            - name: OBJECT_STORAGE_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: datahub-secret
+                  key: OBJECT_STORAGE_ACCESS_KEY
+            - name: OBJECT_STORAGE_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: datahub-secret
+                  key: OBJECT_STORAGE_SECRET_KEY
+          # Celery worker liveness: 프로세스 생존 확인 (celery inspect ping 은 brokers 필요하므로 프로세스 존재만 검증)
+          livenessProbe:
+            exec:
+              command: ["sh", "-c", "pgrep -f 'celery.*worker' >/dev/null"]
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          lifecycle:
+            preStop:
+              exec:
+                # SIGTERM 후 warm shutdown 여유를 준다 (진행중 task 완료 대기)
+                command: ["sh", "-c", "sleep 10"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "2"
+              memory: 2Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: celery-beat
+  namespace: datahub
+spec:
+  # NOTE: leader election 없으면 반드시 1 로 유지. 고가용성이 필요하면 redbeat 또는 CronJob 대체 권장.
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: celery-beat
+  template:
+    metadata:
+      labels:
+        app: celery-beat
+    spec:
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        fsGroup: 1001
+      containers:
+        - name: celery-beat
+          image: registry.kwater.or.kr/datahub/backend:v0.1.0
+          imagePullPolicy: IfNotPresent
+          command: ["celery", "-A", "app.tasks", "beat", "--loglevel=info"]
+          envFrom:
+            - configMapRef:
+                name: datahub-config
+          env:
+            - name: JWT_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: datahub-secret
+                  key: JWT_SECRET_KEY
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi

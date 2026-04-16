@@ -1,0 +1,128 @@
+---
+# 기본 정책: 네임스페이스 내 모든 파드에 대한 인그레스 "기본 거부"
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+  namespace: datahub
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+---
+# Backend: nginx-ingress + frontend 로부터만 8000 허용
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: backend-ingress
+  namespace: datahub
+spec:
+  podSelector:
+    matchLabels:
+      app: backend
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+        - podSelector:
+            matchLabels:
+              app: frontend
+      ports:
+        - port: 8000
+          protocol: TCP
+---
+# Frontend: nginx-ingress 로부터만 80 허용
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: frontend-ingress
+  namespace: datahub
+spec:
+  podSelector:
+    matchLabels:
+      app: frontend
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+      ports:
+        - port: 80
+          protocol: TCP
+---
+# Postgres: backend / celery-worker / migration Job 만 5432 허용
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: postgres-ingress
+  namespace: datahub
+spec:
+  podSelector:
+    matchLabels:
+      app: postgres
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: backend
+        - podSelector:
+            matchLabels:
+              app: celery-worker
+        - podSelector:
+            matchLabels:
+              app: datahub-migration
+      ports:
+        - port: 5432
+          protocol: TCP
+---
+# Redis: backend / celery-worker / celery-beat 만 6379 허용
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: redis-ingress
+  namespace: datahub
+spec:
+  podSelector:
+    matchLabels:
+      app: redis
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: backend
+        - podSelector:
+            matchLabels:
+              app: celery-worker
+        - podSelector:
+            matchLabels:
+              app: celery-beat
+      ports:
+        - port: 6379
+          protocol: TCP
+---
+# MinIO: backend / celery-worker 만 9000 허용 (9001 console 은 ingress 로 별도 노출 시 추가)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: minio-ingress
+  namespace: datahub
+spec:
+  podSelector:
+    matchLabels:
+      app: minio
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: backend
+        - podSelector:
+            matchLabels:
+              app: celery-worker
+      ports:
+        - port: 9000
+          protocol: TCP
