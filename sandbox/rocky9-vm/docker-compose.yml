@@ -1,0 +1,26 @@
+# 로컬 PC 에서 폐쇄망 VM 을 시뮬레이션하기 위한 Rocky Linux 9.x 컨테이너
+# 실행: (이 디렉토리에서)  docker compose up -d --build
+# SSH:  ssh datahub@localhost -p 2222  (비밀번호: datahub)
+services:
+  rocky9-vm:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        USER_NAME: datahub
+        USER_PASSWORD: datahub
+        ROOT_PASSWORD: rootpass
+    image: datahub/rocky9-vm:local
+    container_name: datahub-rocky9-vm
+    hostname: datahub-portal
+    ports:
+      - "2222:22"     # SSH
+      - "8090:80"     # 테스트용 웹 포트 (VM 내부에서 nginx 돌릴 때 사용)
+      - "8443:443"    # 테스트용 HTTPS
+    volumes:
+      # 호스트의 airgap 패키지/소스를 VM 안에 마운트 (Windows 경로 주의)
+      - ./shared:/home/datahub/shared
+    # 컨테이너 특권 (Docker-in-Docker 필요 시 privileged 로 변경)
+    cap_add:
+      - SYS_PTRACE
+    restart: unless-stopped
